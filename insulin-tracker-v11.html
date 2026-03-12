@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>InsulinTrack · Insulin Action Model</title>
+  <title>InsulinAbacus · Insulin Action Model</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -3411,7 +3411,7 @@
       siteIdx, setSiteIdx, siteName, siteMultiplier,
       entryTime, setEntryTime,
       not, setNot,
-      dualBg, HR_ref,
+      dualBg, HR_ref, targetBG,
       bgZone, effBgNum,
       doseRes, liveMod, totalIOB,
       cgmReading,
@@ -3694,7 +3694,7 @@
                   <div className="rv">{doseRes.total}<span style={{ fontSize: '18px', color: 'var(--td)' }}>u</span></div>
                 </div>
                 <div className="rb">
-                  {doseRes.corrDoseBase > 0 && <>{`Correction: (${effBgNum} - ${profile.targetBG}) / ${doseRes.corrSensitivity} = +${doseRes.corrDoseBase}u`}<br /></>}
+                  {doseRes.corrDoseBase > 0 && <>{`Correction: (${effBgNum} - ${targetBG}) / ${doseRes.corrSensitivity} = +${doseRes.corrDoseBase}u`}<br /></>}
                   {doseRes.iobCredit > 0 && <>{`PK IOB credit: -${doseRes.iobCredit}u -> correction ${doseRes.corrDose}u`}<br /></>}
                   {doseRes.correctionBlockedByIob && <span style={{ color: 'var(--r)' }}>Correction blocked by active IOB.</span>}
                   {doseRes.carbDose > 0 && <>{`Carbs: ${crbs}g ÷ ${doseRes.effCR}g/u (adjusted ratio) = +${doseRes.carbDose}u`}<br /></>}
@@ -4765,7 +4765,7 @@
             <div className="hl">
               <div className="logo">💉</div>
               <div>
-                <div className="at">InsulinTrack</div>
+                <div className="at">InsulinAbacus</div>
                 <div className="as">Insulin Action Model</div>
               </div>
             </div>
@@ -4859,6 +4859,7 @@
               entryTime={entryTime} setEntryTime={setEntryTime}
               not={not} setNot={setNot}
               dualBg={ui.dualBg} HR_ref={profile.HR_ref}
+              targetBG={profile.targetBG}
               bgZone={bgZone} effBgNum={effBgNum}
               doseRes={doseRes} liveMod={liveMod} totalIOB={totalIOB}
               cgmReading={cgmReading}

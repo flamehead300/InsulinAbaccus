@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>InsulinAbacus · Insulin Action Model</title>
+  <title>InsulinTrack � Insulin Action Model</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=DM+Sans:wght@300;400;500;600&display=swap"
     rel="stylesheet" />
   <style>
-    /* ── Design tokens ─────────────────────────────────────────────────────────── */
+    /* -- Design tokens ----------------------------------------------------------- */
     :root {
       --bg: #0a0e1a;
       --s1: #111827;
@@ -71,7 +71,7 @@
       padding: 16px;
     }
 
-    /* ── Header ────────────────────────────────────────────────────────────────── */
+    /* -- Header ------------------------------------------------------------------ */
     .hdr {
       display: flex;
       align-items: center;
@@ -113,7 +113,7 @@
       text-transform: uppercase;
     }
 
-    /* ── Tabs ──────────────────────────────────────────────────────────────────── */
+    /* -- Tabs -------------------------------------------------------------------- */
     .tabs {
       display: flex;
       gap: 4px;
@@ -148,7 +148,7 @@
       color: var(--tx);
     }
 
-    /* ── Card ──────────────────────────────────────────────────────────────────── */
+    /* -- Card -------------------------------------------------------------------- */
     .card {
       background: var(--s1);
       border: 1px solid var(--bd);
@@ -176,7 +176,7 @@
       background: var(--bd);
     }
 
-    /* ── Form fields ───────────────────────────────────────────────────────────── */
+    /* -- Form fields ------------------------------------------------------------- */
     .fg {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -232,7 +232,14 @@
       color: var(--tm);
     }
 
-    /* ── Button-group selectors (activity / stress / hydration) ────────────────── */
+    .inerr {
+      color: var(--r);
+      font-size: 11px;
+      font-family: var(--mono);
+      line-height: 1.35;
+    }
+
+    /* -- Button-group selectors (activity / stress / hydration) ------------------ */
     .pal4 {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -284,7 +291,7 @@
       background: rgba(255, 107, 107, .08);
     }
 
-    /* ── Toggle switches ───────────────────────────────────────────────────────── */
+    /* -- Toggle switches --------------------------------------------------------- */
     .slp {
       display: flex;
       align-items: center;
@@ -353,7 +360,7 @@
       color: var(--ac);
     }
 
-    /* ── Sleep quality slider ──────────────────────────────────────────────────── */
+    /* -- Sleep quality slider ---------------------------------------------------- */
     .sq-wrap {
       margin-top: 8px;
       padding: 9px 13px;
@@ -381,7 +388,7 @@
       text-align: right;
     }
 
-    /* ── BG Zone banner ────────────────────────────────────────────────────────── */
+    /* -- BG Zone banner ---------------------------------------------------------- */
     .bgz {
       display: flex;
       align-items: center;
@@ -437,7 +444,7 @@
       color: var(--tx);
     }
 
-    /* ── Dose result box ───────────────────────────────────────────────────────── */
+    /* -- Dose result box --------------------------------------------------------- */
     .rbox {
       background: var(--s2);
       border: 1px solid var(--ac);
@@ -445,6 +452,54 @@
       padding: 15px 18px;
       margin: 13px 0;
       box-shadow: var(--glow);
+    }
+
+    .warn-full {
+      border: 1px solid #f59e0b66;
+      background: rgba(251, 191, 36, .12);
+      color: #fcd34d;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-top: 11px;
+      font-size: 12px;
+      font-family: var(--mono);
+      line-height: 1.45;
+    }
+
+    .crit-full {
+      border: 1px solid #ef444466;
+      background: rgba(239, 68, 68, .12);
+      color: #fecaca;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-top: 10px;
+      font-size: 12px;
+      font-family: var(--mono);
+      line-height: 1.45;
+    }
+
+    .hypo-screen {
+      border: 1px solid #ef444466;
+      background: linear-gradient(145deg, rgba(239, 68, 68, .18), rgba(127, 29, 29, .1));
+      border-radius: 12px;
+      padding: 14px;
+      margin-top: 12px;
+      margin-bottom: 10px;
+    }
+
+    .hypo-screen .title {
+      color: #fecaca;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      font-size: 11px;
+      margin-bottom: 6px;
+    }
+
+    .hypo-screen .msg {
+      color: #fee2e2;
+      font-size: 13px;
+      line-height: 1.45;
     }
 
     .rtop {
@@ -485,7 +540,7 @@
       border-top: 1px solid var(--bd);
     }
 
-    /* ── Modifier panel ────────────────────────────────────────────────────────── */
+    /* -- Modifier panel ---------------------------------------------------------- */
     .mp .mst {
       font-family: var(--mono);
       font-size: 10px;
@@ -568,7 +623,7 @@
       color: var(--tx);
     }
 
-    /* ── Active Insulin (IOB) ──────────────────────────────────────────────────── */
+    /* -- Active Insulin (IOB) ---------------------------------------------------- */
     .iobh {
       display: flex;
       align-items: center;
@@ -643,7 +698,7 @@
       border: 1px solid var(--bd);
     }
 
-    /* ── Body memory state variables ───────────────────────────────────────────── */
+    /* -- Body memory state variables --------------------------------------------- */
     .svg {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -685,7 +740,7 @@
       transition: width .5s;
     }
 
-    /* ── Forecast tiles ────────────────────────────────────────────────────────── */
+    /* -- Forecast tiles ---------------------------------------------------------- */
     .projg {
       display: flex;
       gap: 16px;
@@ -716,13 +771,13 @@
       text-align: center;
     }
 
-    /* ── Chart ─────────────────────────────────────────────────────────────────── */
+    /* -- Chart ------------------------------------------------------------------- */
     .chwrap {
       position: relative;
       height: 260px;
     }
 
-    /* ── Log table ─────────────────────────────────────────────────────────────── */
+    /* -- Log table --------------------------------------------------------------- */
     .lt {
       width: 100%;
       border-collapse: collapse;
@@ -761,7 +816,7 @@
       overflow-y: auto;
     }
 
-    /* ── Settings ──────────────────────────────────────────────────────────────── */
+    /* -- Settings ---------------------------------------------------------------- */
     .sg {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -794,7 +849,7 @@
       color: var(--tx);
     }
 
-    /* ── BPM Monitor modal ──────────────────────────────────────────────────────── */
+    /* -- BPM Monitor modal -------------------------------------------------------- */
     .bpm-overlay {
       position: fixed;
       inset: 0;
@@ -1071,7 +1126,7 @@
       background: rgba(0, 212, 255, .03);
     }
 
-    /* ── Buttons ───────────────────────────────────────────────────────────────── */
+    /* -- Buttons ----------------------------------------------------------------- */
     .btn {
       display: inline-flex;
       align-items: center;
@@ -1084,6 +1139,13 @@
       font-weight: 600;
       cursor: pointer;
       transition: all .15s;
+    }
+
+    .btn:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
     }
 
     .bp {
@@ -1127,7 +1189,7 @@
       justify-content: center;
     }
 
-    /* ── Status tags ───────────────────────────────────────────────────────────── */
+    /* -- Status tags ------------------------------------------------------------- */
     .tag {
       display: inline-flex;
       align-items: center;
@@ -1152,7 +1214,7 @@
       color: var(--y);
     }
 
-    /* ── Toast ─────────────────────────────────────────────────────────────────── */
+    /* -- Toast ------------------------------------------------------------------- */
     .tst {
       position: fixed;
       bottom: 24px;
@@ -1191,7 +1253,7 @@
       }
     }
 
-    /* ── Light Mode ────────────────────────────────────────────────────────────── */
+    /* -- Light Mode -------------------------------------------------------------- */
     html[data-theme="light"] {
       --bg: #f0f4f8;
       --s1: #ffffff;
@@ -1256,7 +1318,7 @@
       box-shadow: 0 0 0 2px rgba(0, 119, 204, .15);
     }
 
-    /* ── High Visibility Mode ───────────────────────────────────────────────────── */
+    /* -- High Visibility Mode ----------------------------------------------------- */
     html[data-theme="high-vis"] {
       --bg: #000000;
       --s1: #0d0d0d;
@@ -1327,7 +1389,7 @@
       border-color: #444;
     }
 
-    /* ── Misc helpers ──────────────────────────────────────────────────────────── */
+    /* -- Misc helpers ------------------------------------------------------------ */
     ::-webkit-scrollbar {
       width: 5px;
     }
@@ -1387,7 +1449,7 @@
       margin-bottom: 5px;
     }
 
-    /* ── Simple / Advanced mode toggle ─────────────────────────────────────────── */
+    /* -- Simple / Advanced mode toggle ------------------------------------------- */
     .app.simple .advanced-only {
       display: none;
     }
@@ -1416,7 +1478,7 @@
       background: rgba(0, 212, 255, .08);
     }
 
-    /* ── CGM Live Feed (Nightscout) ─────────────────────────────────────────────── */
+    /* -- CGM Live Feed (Nightscout) ----------------------------------------------- */
     .cgm-badge {
       display: flex;
       align-items: center;
@@ -1505,13 +1567,13 @@
   <script type="text/babel">
     const { useState, useEffect, useRef, useMemo } = React;
 
-    // ═══════════════════════════════════════════════════════════════════════════════
+    // -------------------------------------------------------------------------------
     //  A.  CONSTANTS / DEFAULTS
     //
     //  Three flat objects — profile (slower-moving clinical/demographic settings),
     //  sim params (physiologic coefficients), and ui prefs (display toggles).
     //  Each new feature adds keys here first, then flows through the vertical slice.
-    // ═══════════════════════════════════════════════════════════════════════════════
+    // -------------------------------------------------------------------------------
 
     // Clinical and demographic profile — things a care team would adjust.
     const DEFAULT_PROFILE = {
@@ -1523,6 +1585,7 @@
       lowBG: 70,    // low threshold, mg/dL
       highBG: 180,    // high threshold, mg/dL
       basalRate: 0.8,    // basal insulin rate, units/hr (pump or long-acting background)
+      maxDose: 50,    // hard cap for a single suggested/logged bolus, units
       // Injection site absorption multipliers — per-dose, stored per log entry.
       // Abdomen = fastest; thigh = slowest due to lower local blood flow.
       siteMult_abdomen: 1.00,
@@ -1539,16 +1602,16 @@
 
     // Physiologic model coefficients — advanced / for clinicians.
     const DEFAULT_SIM_PARAMS = {
-      // ── Absorption (k_abs) ─────────────────────────────────────────────────────
+      // -- Absorption (k_abs) -----------------------------------------------------
       k_abs0: 0.80,   // hr⁻¹  baseline absorption rate constant
       alpha: 0.05,   // BMI absorption penalty (how much extra BMI slows absorption)
       beta: 0.50,   // HR boost coefficient (faster pulse → faster absorption)
       beta_max: 0.60,   // ceiling on the HR effect (prevents runaway)
       gamma: 0.08,   // activity boost per MET
       delta: 0.30,   // sleep absorption slowdown (0 = no effect, 1 = maximum)
-      // ── Clearance (PK) ────────────────────────────────────────────────────────
+      // -- Clearance (PK) --------------------------------------------------------
       k_clear: 0.50,   // hr⁻¹  plasma clearance rate
-      // ── Sensitivity (S_eff) ───────────────────────────────────────────────────
+      // -- Sensitivity (S_eff) ---------------------------------------------------
       theta: 0.07,   // BMI sensitivity penalty
       sigma_bg: 80,     // mg/dL  width of the BG→sensitivity Gaussian curve
       kappa: 0.05,   // exercise sensitivity boost per MET
@@ -1557,51 +1620,51 @@
       sigma_h: 0.025,  // how much a recent high reduces insulin response
       eta: 0.20,   // sleep sensitivity reduction (0 = none, 1 = maximum)
       eta_q: 0.50,   // sleep quality amplifier (poor quality makes eta worse)
-      // ── Age & sex baseline adjustments (3.1) ──────────────────────────────────
+      // -- Age & sex baseline adjustments (3.1) ----------------------------------
       age_penalty: 0.07, // sensitivity lost per decade over age 30 (0–1 scale)
       sex_factor_F: 0.95, // baseline sensitivity multiplier for female sex (< 1 = more sensitive)
-      // ── Travel / routine disruption (3.2) ─────────────────────────────────────
+      // -- Travel / routine disruption (3.2) -------------------------------------
       travel_sens_penalty: 0.20, // fractional sensitivity reduction during travel/disruption
       travel_uncertainty: 0.30, // uncertainty band growth rate (mg/dL per hour of projection)
-      // ── Alcohol (4.1) ─────────────────────────────────────────────────────────
+      // -- Alcohol (4.1) ---------------------------------------------------------
       alcohol_hep_suppress: 0.30, // fraction by which alcohol suppresses hepatic glucose output
       alcohol_gastric_slow: 0.20, // fraction by which alcohol slows gastric emptying rate
       alcohol_sens_effect: 0.10, // direct sensitivity perturbation (slight reduction at level 1)
-      // ── Stimulants (4.2) ──────────────────────────────────────────────────────
+      // -- Stimulants (4.2) ------------------------------------------------------
       stim_sens_penalty: 0.20, // adenosine-antagonism / epinephrine → reduces insulin sensitivity
       stim_hep_boost: 0.10, // glycogenolysis from mild adrenaline → transient G_prod increase
-      // ── Depressants (4.3) ─────────────────────────────────────────────────────
+      // -- Depressants (4.3) -----------------------------------------------------
       depress_sleep_amplify: 0.30, // amplifies sleep-related sensitivity reduction
       depress_gastric_slow: 0.15, // CNS/smooth-muscle relaxation slows gastric emptying
-      // ── Nicotine (4.4) ────────────────────────────────────────────────────────
+      // -- Nicotine (4.4) --------------------------------------------------------
       nicotine_util_penalty: 0.15, // vasoconstriction → impairs peripheral glucose disposal
-      // ── THC / Cannabis (4.5) ──────────────────────────────────────────────────
+      // -- THC / Cannabis (4.5) --------------------------------------------------
       thc_gastric_slow: 0.25, // CB1 receptor activation in ENS → slows gastric motility
-      // ── Stress & illness (NEW — Tier 1) ───────────────────────────────────────
+      // -- Stress & illness (NEW — Tier 1) ---------------------------------------
       h_U: 0.15,   // stress → counterregulatory pressure on sensitivity
       h_K: 0.25,   // illness → counterregulatory pressure on sensitivity
-      // ── Hydration (NEW — Tier 1) ──────────────────────────────────────────────
+      // -- Hydration (NEW — Tier 1) ----------------------------------------------
       h_hd: 0.08,   // dehydration → reduced absorption reliability
-      // ── Glucose dynamics (projection) ─────────────────────────────────────────
+      // -- Glucose dynamics (projection) -----------------------------------------
       G_prod: 0.0,    // mg/dL/hr net glucose production (0 = basal is covered)
       k_basal: 0.008,  // hr⁻¹  pull toward target BG (mean reversion)
-      // ── State variable decay constants (hours) ────────────────────────────────
+      // -- State variable decay constants (hours) --------------------------------
       tau_ex: 3,      // exercise effect half-life
       tau_low: 4,      // low-BG memory half-life
       tau_high: 6,      // high-BG memory half-life
-      // ── Fat & protein delayed glucose (2.1) ───────────────────────────────────
+      // -- Fat & protein delayed glucose (2.1) -----------------------------------
       fat_factor: 0.10, // mg/dL-equivalent glucose per gram fat
       prot_factor: 0.20, // mg/dL-equivalent glucose per gram protein
       lambda_FP: 0.30, // hr⁻¹  decay/release rate of fat-protein glucose reservoir
-      // ── Meal type & fiber absorption slowing (2.2) ────────────────────────────
+      // -- Meal type & fiber absorption slowing (2.2) ----------------------------
       meal_slow_fast: 1.0,  // carb absorption multiplier — fast carbs
       meal_slow_mixed: 0.7, // carb absorption multiplier — mixed meal
       meal_slow_hfp: 0.4,  // carb absorption multiplier — high fat/protein
       fiber_slow_low: 1.0, // fiber absorption multiplier — low fiber
       fiber_slow_med: 0.8, // fiber absorption multiplier — medium fiber
       fiber_slow_high: 0.6, // fiber absorption multiplier — high fiber
-      // ── Uncertainty scoring (5.1) ────────────────────────────────────────────
-      // U(t) = (1 + Σ wᵢ·Sᵢ) · u_base · √t  — widens the confidence band
+      // -- Uncertainty scoring (5.1) --------------------------------------------
+      // U(t) = (1 + Σ wᵢ�Sᵢ) � u_base � √t  — widens the confidence band
       u_base: 18,   // base ±mg/dL band width per √hour at U_scalar=1
       u_stress: 0.30, // stress (0–3, normalised to 0–1) contribution
       u_illness: 0.50, // illness toggle contribution
@@ -1609,13 +1672,13 @@
       u_overlap: 0.25, // each active meal reservoir adds this to the scalar
       u_substances: 0.15, // per unit of summed substance level
       u_iob: 0.10, // per unit of plasma insulin (Q_p, capped at 5u)
-      // ── Gastric emptying reservoir (2.3) ─────────────────────────────────────
+      // -- Gastric emptying reservoir (2.3) -------------------------------------
       k_ge_base: 2.0, // hr⁻¹  base gastric emptying rate
       k_ge_fat_factor: 0.3, // fat fraction penalty on gastric emptying
       k_ge_prot_factor: 0.2, // protein fraction penalty on gastric emptying
       k_ge_fiber_factor: 0.2,// (reserved) fiber penalty on gastric emptying
       k_carb_abs: 1.5, // mg/dL/g/hr  gut→blood glucose absorption rate
-      // ── Nonlinear PK model (BloodGlucoseInsulinModel) ────────────────────────────
+      // -- Nonlinear PK model (BloodGlucoseInsulinModel) ----------------------------
       k_a_max: 0.03, // min⁻¹  max saturable subcutaneous absorption rate
       K_M: 5.0,  // U      Michaelis-Menten half-saturation constant
     };
@@ -1738,7 +1801,16 @@
     const STORE_LOGS = 'it_logs_v10';
     const STORE_CGM = 'it_cgm_v10'; // Nightscout CGM config
 
-    // ── CGM / Nightscout defaults ─────────────────────────────────────────────────
+    // Safety guardrails for entry validation and dose computation.
+    const BG_ENTRY_MIN = 20;
+    const BG_ENTRY_MAX = 600;
+    const BG_DOSING_MAX = 500;
+    const CARB_ENTRY_MIN = 0;
+    const CARB_ENTRY_MAX = 400;
+    const IOB_STACK_WARN_U = 2;
+    const CALIBRATION_MIN_LOGS = 10;
+
+    // -- CGM / Nightscout defaults -------------------------------------------------
     // authMethod: 'secret' = SHA-1 hashed API_SECRET header (most common)
     //             'token'  = ?token= query param (Nightscout access tokens)
     //             'none'   = no auth (public Nightscout instances)
@@ -1770,7 +1842,7 @@
     };
 
 
-    // ═══════════════════════════════════════════════════════════════════════════════
+    // -------------------------------------------------------------------------------
     //  A2. GLUCOSE–INSULIN SIMULATION MODULE
     //
     //  Subsystem classes (each owns one concern):
@@ -1784,9 +1856,9 @@
     //
     //  BloodGlucoseInsulinModel — orchestrator.
     //  Public API preserved from v1; new methods added below.
-    // ═══════════════════════════════════════════════════════════════════════════════
+    // -------------------------------------------------------------------------------
 
-    // ── InsulinPK ──────────────────────────────────────────────────────────────────
+    // -- InsulinPK ------------------------------------------------------------------
     // Two-compartment model: subcutaneous depot D (U) → plasma P (U).
     // Absorption uses Michaelis-Menten saturable kinetics:
     //   k_a(D) = k_a_max × D / (K_M + D)   [min⁻¹]
@@ -1825,7 +1897,7 @@
       }
     }
 
-    // ── SensitivityModel ───────────────────────────────────────────────────────────
+    // -- SensitivityModel -----------------------------------------------------------
     // Manages four orthogonal insulin sensitivity factors.
     //
     // S_active = product of ALL four factors (sensitivity right now).
@@ -1866,7 +1938,7 @@
         this._futureWeights = futureFactorWeights ?? {};
       }
 
-      // ── Factor updates ────────────────────────────────────────────────────────────
+      // -- Factor updates ------------------------------------------------------------
       setFactors(newFactors = {}) {
         for (const [key, [lo, hi]] of Object.entries(this._bounds)) {
           const shortKey = key.replace('SensitivityFactor', '');
@@ -1875,7 +1947,7 @@
         }
       }
 
-      // ── Future sensitivity configuration (2.3) ────────────────────────────────────
+      // -- Future sensitivity configuration (2.3) ------------------------------------
       // Set which factors contribute to S_future.
       // names: array of full factor names or short aliases.
       // e.g. ['circadian', 'exercise']
@@ -1898,7 +1970,7 @@
         this._futureWeights = normalised;
       }
 
-      // ── Computed sensitivities ────────────────────────────────────────────────────
+      // -- Computed sensitivities ----------------------------------------------------
       get S_active() {
         const raw = this.factors.circadianSensitivityFactor
           * this.factors.exerciseSensitivityFactor
@@ -1930,13 +2002,13 @@
       }
     }
 
-    // ── PDLayer ────────────────────────────────────────────────────────────────────
+    // -- PDLayer --------------------------------------------------------------------
     // Pharmacodynamics: maps PK state (D, P) + sensitivity to insulin effect and IOB.
     // All methods are pure/stateless. PK knows nothing about sensitivity — that boundary
     // is enforced here.
     class PDLayer {
       // Current insulin effect: plasma concentration scaled by active sensitivity.
-      // Units: U·(sensitivity) — fed into GlucoseSimulator as the disposal driver.
+      // Units: U�(sensitivity) — fed into GlucoseSimulator as the disposal driver.
       static currentEffect(P, S_active) {
         return P * S_active;
       }
@@ -1956,7 +2028,7 @@
       }
     }
 
-    // ── CorrectionEngine ───────────────────────────────────────────────────────────
+    // -- CorrectionEngine -----------------------------------------------------------
     // Stateless correction-dose calculations — pure functions, no instance needed.
     // Consumes pre-computed PD outputs; never touches raw PK values (D, P) directly.
     class CorrectionEngine {
@@ -1971,7 +2043,7 @@
       }
     }
 
-    // ── CarbAbsorption ─────────────────────────────────────────────────────────────
+    // -- CarbAbsorption -------------------------------------------------------------
     // Two-compartment gut model: D_g (gut reservoir, g) → R_c (transit, g) → blood.
     //   dD_g/dt = –k_ge × D_g
     //   dR_c/dt =  k_ge × D_g – k_abs × R_c
@@ -2008,7 +2080,7 @@
       }
     }
 
-    // ── BasalModel ─────────────────────────────────────────────────────────────────
+    // -- BasalModel -----------------------------------------------------------------
     // Continuous basal insulin infusion. Adds a steady trickle to the depot each step.
     class BasalModel {
       constructor({ basalRate = 0.0 } = {}) {
@@ -2018,7 +2090,7 @@
       step(dtMin) { return this.basalRate * (dtMin / 60); }
     }
 
-    // ── GlucoseSimulator ───────────────────────────────────────────────────────────
+    // -- GlucoseSimulator -----------------------------------------------------------
     // Single-compartment glucose model for forward projection simulations.
     // Not used during IOB credit calculation (live BG comes from CGM/log entries).
     //   dG/dt = G_prod – ISF × k_e × P × S_active – k_basal × (G – G_target) + carb_effect
@@ -2061,7 +2133,7 @@
       }
     }
 
-    // ── BloodGlucoseInsulinModel (orchestrator) ────────────────────────────────────
+    // -- BloodGlucoseInsulinModel (orchestrator) ------------------------------------
     //
     //  Wires all subsystems behind a single event-driven API.
     //
@@ -2111,7 +2183,7 @@
         this.lastUpdateTime = Date.now();
       }
 
-      // ── Event-driven API ────────────────────────────────────────────────────────
+      // -- Event-driven API --------------------------------------------------------
       addBolus(amount, time = Date.now()) {
         this._advanceTo(time);
         this._pk.addBolus(amount);
@@ -2129,7 +2201,7 @@
         this._sens.setFactors(newFactors);
       }
 
-      // ── Query API ───────────────────────────────────────────────────────────────
+      // -- Query API ---------------------------------------------------------------
       // Returns the same shape as v1 for backward compatibility + glucose/carbs fields.
       getState(time = Date.now()) {
         this._advanceTo(time);
@@ -2160,7 +2232,7 @@
         return { glucose, target, creditMethod: method, state, ...rec };
       }
 
-      // ── Simulation layer ────────────────────────────────────────────────────────
+      // -- Simulation layer --------------------------------------------------------
       // Forward projection — does NOT mutate the current instance.
       // Returns an array of snapshot objects at intervalMin resolution.
       // opts.glucoseStart: override starting glucose (default: last known G)
@@ -2201,7 +2273,7 @@
         return pts;
       }
 
-      // ── State persistence ───────────────────────────────────────────────────────
+      // -- State persistence -------------------------------------------------------
       snapshot() {
         return {
           time: this.lastUpdateTime,
@@ -2229,18 +2301,18 @@
         this.lastUpdateTime = Date.now();
       }
 
-      // ── Configurable future sensitivity (delegated to SensitivityModel) ──────────
+      // -- Configurable future sensitivity (delegated to SensitivityModel) ----------
       setFutureFactorNames(names) { this._sens.setFutureFactorNames(names); }
       setFutureFactorWeights(weights) { this._sens.setFutureFactorWeights(weights); }
 
-      // ── Backward-compatibility static ───────────────────────────────────────────
+      // -- Backward-compatibility static -------------------------------------------
       static defaultGlucoseSensitivityFactor(glucose, glucoseRate) {
         if (glucose < 70 && glucoseRate < -1) return 0.8;
         if (glucose > 180 && glucoseRate > 0) return 1.2;
         return 1.0;
       }
 
-      // ── Internal ────────────────────────────────────────────────────────────────
+      // -- Internal ----------------------------------------------------------------
       // Advance PK and CarbAbsorption subsystems to targetTime.
       // GlucoseSimulator is NOT advanced here — live BG readings drive glucose,
       // not the model (callers pass measured values into getCorrectionRecommendation).
@@ -2259,9 +2331,9 @@
       }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════════
+    // -------------------------------------------------------------------------------
     //  B.  UTILITY FUNCTIONS
-    // ═══════════════════════════════════════════════════════════════════════════════
+    // -------------------------------------------------------------------------------
 
     // Clamp a number between lo and hi.
     function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
@@ -2274,6 +2346,49 @@
 
     // Parse a number safely; return fallback if the result is NaN or ≤ 0.
     function safeNum(v, fallback = 0) { const n = parseFloat(v); return isNaN(n) ? fallback : n; }
+
+    // Parse optional numeric input: empty -> null, invalid -> null.
+    function parseOptNum(v) {
+      if (v == null || v === '') return null;
+      const n = parseFloat(v);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    // Centralized validation for entry BG/carb fields.
+    function validateEntryInputs({ bg, fs, crbs, dualBg }) {
+      const bgV = parseOptNum(bg);
+      const fsV = parseOptNum(fs);
+      const carbV = parseOptNum(crbs);
+
+      let bgErr = null;
+      let fsErr = null;
+      let carbErr = null;
+
+      if (bgV != null && (bgV < BG_ENTRY_MIN || bgV > BG_ENTRY_MAX))
+        bgErr = `BG must be ${BG_ENTRY_MIN}-${BG_ENTRY_MAX} mg/dL.`;
+      if (dualBg && fsV != null && (fsV < BG_ENTRY_MIN || fsV > BG_ENTRY_MAX))
+        fsErr = `Fingerstick must be ${BG_ENTRY_MIN}-${BG_ENTRY_MAX} mg/dL.`;
+      if (carbV != null && (carbV < CARB_ENTRY_MIN || carbV > CARB_ENTRY_MAX))
+        carbErr = `Carbs must be ${CARB_ENTRY_MIN}-${CARB_ENTRY_MAX}g.`;
+
+      const effBg = dualBg && fsV != null ? fsV : bgV;
+      let doseBlockReason = null;
+      if (!bgErr && !fsErr && effBg != null && effBg > BG_DOSING_MAX)
+        doseBlockReason = `Dose calculation disabled above ${BG_DOSING_MAX} mg/dL.`;
+      if (!carbErr && carbV != null && carbV > CARB_ENTRY_MAX)
+        doseBlockReason = `Dose calculation disabled above ${CARB_ENTRY_MAX}g carbs.`;
+
+      const canCompute = !bgErr && !fsErr && !carbErr && effBg != null && !doseBlockReason;
+      return { bgV, fsV, carbV, effBg, bgErr, fsErr, carbErr, doseBlockReason, canCompute };
+    }
+
+    // k_clear is stored in hr^-1. These helpers make unit intent explicit.
+    function kClearPerHour(sim) {
+      return Math.max(0.001, safeNum(sim.k_clear, 0.5));
+    }
+    function kClearPerMinute(sim) {
+      return kClearPerHour(sim) / 60;
+    }
 
     // Hours elapsed between two ISO timestamps (positive = log is in the past).
     function hoursBetween(isoA, isoB) {
@@ -2331,7 +2446,7 @@
       return isNaN(d.getTime()) ? null : d.toISOString();
     }
 
-    // ── Nightscout / CGM utilities ────────────────────────────────────────────────
+    // -- Nightscout / CGM utilities ------------------------------------------------
 
     // SHA-1 hex digest — required by Nightscout API-secret header spec.
     // Uses Web Crypto API (SubtleCrypto), available in all modern browsers.
@@ -2417,14 +2532,14 @@
     }
 
 
-    // ═══════════════════════════════════════════════════════════════════════════════
+    // -------------------------------------------------------------------------------
     //  C.  PHYSIOLOGIC MODEL FUNCTIONS
     //
     //  Each function is a pure computation — no React, no side effects.
     //  Input objects carry exactly the fields each function needs.
-    // ═══════════════════════════════════════════════════════════════════════════════
+    // -------------------------------------------------------------------------------
 
-    // ── C1. Absorption modifier k_abs(t) ─────────────────────────────────────────
+    // -- C1. Absorption modifier k_abs(t) -----------------------------------------
     // Returns how fast insulin will be absorbed given current conditions.
     // Result > 1 = faster than baseline; result < 1 = slower.
     // mealType (0–2) and fiberClass (0–2) are optional; when carbs > 0 they
@@ -2464,7 +2579,7 @@
       };
     }
 
-    // ── C2. Sensitivity multiplier S_eff(t) ──────────────────────────────────────
+    // -- C2. Sensitivity multiplier S_eff(t) --------------------------------------
     // Returns how strongly 1 unit of insulin lowers blood sugar right now.
     //
     // η₀ — demographic baseline: age and sex are slow-moving profile constants
@@ -2472,13 +2587,13 @@
     // Dynamic factors then modulate η₀ up or down in real time.
     //
     // Model:
-    //   η₀ = corrFactor · fBMI · fAge · fSex
-    //   S_eff = η₀ · fBG · fEx · fDawn · fLow · fHigh · fSlp · fStress · fIllness · fTravel
+    //   η₀ = corrFactor � fBMI � fAge � fSex
+    //   S_eff = η₀ � fBG � fEx � fDawn � fLow � fHigh � fSlp � fStress � fIllness � fTravel
     function calcSeff(inp, sv, profile, sim) {
       const { bmi, bg, sleep, sleepQ, stress, illness, travelDay = 0 } = inp;
       const { E_ex, L, H } = sv;
 
-      // ── Demographic baseline (η₀ factors) ────────────────────────────────────
+      // -- Demographic baseline (η₀ factors) ------------------------------------
       // BMI penalty: excess adiposity reduces receptor-level sensitivity.
       const fBMI = Math.exp(-sim.theta * Math.max(0, bmi - profile.BMI_ref));
 
@@ -2493,7 +2608,7 @@
       // Composite demographic baseline.
       const eta0 = profile.corrFactor * fBMI * fAge * fSex;
 
-      // ── Dynamic real-time factors ─────────────────────────────────────────────
+      // -- Dynamic real-time factors ---------------------------------------------
       // BG-level effect: sensitivity peaks near target BG, falls on both sides.
       const fBG = gauss(bg, profile.targetBG, sim.sigma_bg);
 
@@ -2556,7 +2671,7 @@
       };
     }
 
-    // ── C3. Combined modifier snapshot ───────────────────────────────────────────
+    // -- C3. Combined modifier snapshot -------------------------------------------
     // Merges absorption and sensitivity into one object for display.
     // extra = { pkState, mealState, totalIOB } for full uncertainty calculation.
     function computeModifiers(inp, sv, profile, sim, extra = {}) {
@@ -2597,13 +2712,13 @@
       };
       if (travelDay) sensitivity['Travel'] = s.fTravel;
 
-      // ── 4.x Substance sensitivity factors ────────────────────────────────────
+      // -- 4.x Substance sensitivity factors ------------------------------------
       const metabolic = {};
       if (alcoholLevel > 0) metabolic['Alcohol'] = s.fAlcohol;
       if (stimulantLevel > 0) metabolic['Stimulants'] = s.fStimulant;
       if (nicotineLevel > 0) metabolic['Nicotine'] = s.fNicotine;
 
-      // ── 5.2 Physiologic output factors ───────────────────────────────────────
+      // -- 5.2 Physiologic output factors ---------------------------------------
       // Hepatic output: 1.0 = baseline, < 1 = suppressed (alcohol),
       //                 > 1 = boosted (stimulant-driven glycogenolysis).
       // Stimulant boost is expressed relative to a reference absolute of 0.5 mg/dL/hr
@@ -2631,7 +2746,7 @@
         (1 - sim.thc_gastric_slow * thcLevel)
       );
 
-      // ── 5.1 Uncertainty scalar ────────────────────────────────────────────────
+      // -- 5.1 Uncertainty scalar ------------------------------------------------
       // Base scalar from inp-level stressors; IOB and meal overlap added if extra provided.
       const substanceSum = alcoholLevel + stimulantLevel + depressantLevel + nicotineLevel + thcLevel;
       const { pkState = {}, mealState = {} } = extra;
@@ -2660,7 +2775,7 @@
       };
     }
 
-    // ── C3b. Build PK model from log history ─────────────────────────────────────
+    // -- C3b. Build PK model from log history -------------------------------------
     // Creates a BloodGlucoseInsulinModel, replays logged doses chronologically,
     // and returns the model ready for getState() / getCorrectionRecommendation().
     // k_e is converted from hr⁻¹ (stored in sim) to min⁻¹ (used internally).
@@ -2668,7 +2783,7 @@
       const model = new BloodGlucoseInsulinModel({
         k_a_max: sim.k_a_max ?? 0.03,
         K_M: sim.K_M ?? 5.0,
-        k_e: (sim.k_clear ?? 0.5) / 60,
+        k_e: kClearPerMinute(sim),
         baseISF: profile.corrFactor,
         targetGlucose: profile.targetBG,
       });
@@ -2694,7 +2809,7 @@
       };
     }
 
-    // ── C4. State variables (body memory) ────────────────────────────────────────
+    // -- C4. State variables (body memory) ----------------------------------------
     // Integrates log history to compute E_ex (exercise), L (low memory), H (high memory).
     function computeStateVars(logs, profile, sim) {
       const nowMs = Date.now();
@@ -2711,7 +2826,7 @@
       return { E_ex, L, H };
     }
 
-    // ── C5. Two-compartment PK reconstruction ────────────────────────────────────
+    // -- C5. Two-compartment PK reconstruction ------------------------------------
     // Reconstructs the current subcutaneous (Q_sc) and plasma (Q_p) insulin pools
     // from logged dose history.
     // kabs_rel captures continuous modifiers (BMI, HR, activity, sleep, hydration).
@@ -2727,7 +2842,7 @@
         const contM = safeNum(log.kabs_rel, 1.0);     // continuous modifier at log time
         const siteM = safeNum(log.siteMultiplier, 1.0); // per-dose site factor
         const ka = sim.k_abs0 * contM * siteM;
-        const kc = sim.k_clear;
+        const kc = kClearPerHour(sim);
         Q_sc += D * Math.exp(-ka * tau);
         if (Math.abs(ka - kc) > 1e-3) {
           Q_p += D * ka / (ka - kc) * (Math.exp(-kc * tau) - Math.exp(-ka * tau));
@@ -2738,7 +2853,7 @@
       return { Q_sc: Math.max(0, Q_sc), Q_p: Math.max(0, Q_p) };
     }
 
-    // ── C5b. Meal state reconstruction ───────────────────────────────────────────
+    // -- C5b. Meal state reconstruction -------------------------------------------
     // Reconstructs the current state of the three meal-absorption reservoirs:
     //   delayedMeal — fat/protein glucose-equivalent still pending release (2.1)
     //   D_g         — carbs still in the stomach (grams) (2.3)
@@ -2794,7 +2909,7 @@
       return { delayedMeal, D_g, R_c };
     }
 
-    // ── C6. IOB for a single logged dose ─────────────────────────────────────────
+    // -- C6. IOB for a single logged dose -----------------------------------------
     // Estimates how many units from a past dose are still active.
     // Effective duration is shortened by faster absorption (high ka_rel) and
     // lengthened by slower absorption (e.g. thigh site, low siteMultiplier).
@@ -2807,9 +2922,12 @@
       return Math.max(0, Math.round(log.insulinDose * (1 - elapsed / effDur) * 100) / 100);
     }
 
-    // ── C7. Dose calculation ──────────────────────────────────────────────────────
+    // -- C7. Dose calculation ------------------------------------------------------
     // Suggests a bolus dose based on current BG, carbs, and sensitivity.
     function calcDose(bg, carbs, sv, inp, profile, sim, pkCorrRec = null) {
+      if (!isFinite(bg) || bg <= 0 || bg > BG_DOSING_MAX) return null;
+      if (!isFinite(carbs) || carbs < CARB_ENTRY_MIN || carbs > CARB_ENTRY_MAX) return null;
+
       const sm = calcSeff(inp, sv, profile, sim);
       // Sensitivity for dosing purposes: omits the BG-level factor (fBG) because
       // that factor already accounts for the current BG in the correction formula.
@@ -2830,12 +2948,18 @@
         sm.fEx * sm.fDawn * sm.fLow * sm.fHigh * sm.fSlp * sm.fStress * sm.fIllness;
       const effCR = profile.carbRatio / Math.max(0.05, allDynamic);
       const carbDose = carbs > 0 ? carbs / Math.max(0.5, effCR) : 0;
-      const total = Math.max(0, corrDose + carbDose);
+      const uncappedTotal = Math.max(0, corrDose + carbDose);
+      const maxDose = Math.max(0.5, safeNum(profile.maxDose, 50));
+      const capped = uncappedTotal > maxDose;
+      const total = Math.min(maxDose, uncappedTotal);
       return {
         corrDoseBase: Math.round(corrDoseBase * 100) / 100,
         corrDose: Math.round(corrDose * 100) / 100,
         carbDose: Math.round(carbDose * 100) / 100,
         total: Math.round(total * 100) / 100,
+        uncappedTotal: Math.round(uncappedTotal * 100) / 100,
+        capped,
+        maxDose: Math.round(maxDose * 100) / 100,
         effCR: Math.round(effCR * 10) / 10,
         seffDose: Math.round(seffDose),
         corrSensitivity: Math.round(((pkExpectedFutureISF > 0 ? pkExpectedFutureISF : seffDose)) * 10) / 10,
@@ -2844,7 +2968,7 @@
       };
     }
 
-    // ── C8. Forward glucose simulation ───────────────────────────────────────────
+    // -- C8. Forward glucose simulation -------------------------------------------
     // Euler-integrates the glucose ODE 4 hours ahead at 5-minute steps.
     // Now includes:
     //   • ongoing basal insulin delivery (B_bas)
@@ -2855,7 +2979,7 @@
       const DT = 5 / 60;
       const steps = Math.round(hoursAhead / DT);
       const tNow = new Date().getHours() + new Date().getMinutes() / 60;
-      const kS = profile.corrFactor * sim.k_clear;
+      const kS = profile.corrFactor * kClearPerHour(sim);
 
       let { Q_sc, Q_p } = pkState;
       let { E_ex, L, H } = sv0;
@@ -2898,8 +3022,8 @@
         - sim.alcohol_hep_suppress * alcoholLevel * 0.4  // net negative contribution
         + sim.stim_hep_boost * stimulantLevel;            // 4.2 glycogenolysis boost
 
-      // ── 5.1 Uncertainty scalar U — weighted sum of all active stressors ─────
-      // U_scalar is time-invariant; the band width grows as U_scalar · u_base · √t
+      // -- 5.1 Uncertainty scalar U — weighted sum of all active stressors -----
+      // U_scalar is time-invariant; the band width grows as U_scalar � u_base � √t
       // so compounding errors widen exponentially with horizon, as they do clinically.
       const substanceSum = alcoholLevel + stimulantLevel + depressantLevel + nicotineLevel + thcLevel;
       const overlapScore = ((mealState.D_g ?? 0) > 5 ? 1 : 0)
@@ -2949,7 +3073,7 @@
 
         // Insulin PK.
         const dQsc = -ka * Q_sc + basalInput;
-        const dQp = ka * Q_sc - sim.k_clear * Q_p;
+        const dQp = ka * Q_sc - kClearPerHour(sim) * Q_p;
         const insulinEffect = kS * sm.seff_mult * Q_p;
 
         // 2.1 Fat/protein delayed release — reservoir decays into glucose.
@@ -2983,7 +3107,7 @@
         R_c = Math.max(0, R_c + dRc * DT);
 
         if (i % 6 === 0) {
-          // 5.1 Uncertainty band grows as U_scalar · u_base · √tElapsed.
+          // 5.1 Uncertainty band grows as U_scalar � u_base � √tElapsed.
           // A √t profile matches the diffusion-like compounding of prediction error
           // (biologically: each uncertain step adds variance, not a fixed offset).
           const tElapsed = i * DT;
@@ -3003,9 +3127,9 @@
     }
 
 
-    // ═══════════════════════════════════════════════════════════════════════════════
+    // -------------------------------------------------------------------------------
     //  D.  LOG / PERSISTENCE FUNCTIONS
-    // ═══════════════════════════════════════════════════════════════════════════════
+    // -------------------------------------------------------------------------------
 
     // Build a complete, normalised log entry from raw form state.
     // This is the single place that knows the log schema.
@@ -3145,19 +3269,19 @@
     }
 
 
-    // ═══════════════════════════════════════════════════════════════════════════════
+    // -------------------------------------------------------------------------------
     //  E.  UI COMPONENTS
     //
     //  Each component receives exactly what it needs via props — no global reads.
-    // ═══════════════════════════════════════════════════════════════════════════════
+    // -------------------------------------------------------------------------------
 
-    // ── E0. Toast notification ────────────────────────────────────────────────────
+    // -- E0. Toast notification ----------------------------------------------------
     function Toast({ msg, type, onDone }) {
       useEffect(() => { const t = setTimeout(onDone, 2800); return () => clearTimeout(t); }, []);
       return <div className={`tst ${type}`}>{msg}</div>;
     }
 
-    // ── E1. Modifier bar (single row in the modifier panel) ───────────────────────
+    // -- E1. Modifier bar (single row in the modifier panel) -----------------------
     function ModBar({ label, value }) {
       const c = modColor(value);
       return (
@@ -3174,7 +3298,7 @@
       );
     }
 
-    // ── E2. Modifier panel (absorption + sensitivity + metabolic output) ──────────
+    // -- E2. Modifier panel (absorption + sensitivity + metabolic output) ----------
     function ModPanel({ mod }) {
       const hasMetabolic = mod.metabolic && Object.keys(mod.metabolic).length > 0;
       const confidencePct = Math.round((mod.confidenceFactor ?? 1) * 100);
@@ -3217,7 +3341,7 @@
           <div className="mst">Sensitivity factors</div>
           {Object.entries(mod.sensitivity).map(([k, v]) => <ModBar key={k} label={k} value={v} />)}
 
-          {/* ── 5.2 Metabolic output section — always rendered ── */}
+          {/* -- 5.2 Metabolic output section — always rendered -- */}
           <div className="mst" style={{ color: 'var(--ac)' }}>Metabolic output &amp; confidence</div>
           <ModBar label="Hepatic Output" value={mod.hepaticOutputFactor ?? 1} />
           <ModBar label="Gastric Emptying" value={mod.gastricEmptyingFactor ?? 1} />
@@ -3232,7 +3356,7 @@
       );
     }
 
-    // ── E3a. BPM Monitor modal ─────────────────────────────────────────────────────
+    // -- E3a. BPM Monitor modal -----------------------------------------------------
     // Four-phase heart rate measurement: idle → countdown → recording → result.
     // onConfirm(bpm) writes the measured value back into the HR field.
     function BpmMonitor({ onConfirm, onClose }) {
@@ -3316,12 +3440,12 @@
             {/* Body */}
             <div className="bpm-body">
 
-              {/* ── IDLE ── */}
+              {/* -- IDLE -- */}
               {phase === 'idle' && (
                 <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div className="bpm-info">
                     <div className="bpm-info-row">
-                      <span className="bpm-info-icon">ⓘ</span>
+                      <span className="bpm-info-icon">?</span>
                       <span>With one hand, feel your pulse by placing your index and middle fingers on the side of your lower neck, next to the windpipe. Press lightly until you feel a beat.</span>
                     </div>
                     <div className="bpm-info-row">
@@ -3335,7 +3459,7 @@
                 </div>
               )}
 
-              {/* ── COUNTDOWN ── */}
+              {/* -- COUNTDOWN -- */}
               {phase === 'countdown' && (
                 <div style={{ textAlign: 'center' }}>
                   <div className="bpm-countdown-lbl">Get ready to tap…</div>
@@ -3343,7 +3467,7 @@
                 </div>
               )}
 
-              {/* ── RECORDING ── */}
+              {/* -- RECORDING -- */}
               {phase === 'recording' && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                   <div className="bpm-rec-stats">
@@ -3360,7 +3484,7 @@
                 </div>
               )}
 
-              {/* ── RESULT ── */}
+              {/* -- RESULT -- */}
               {phase === 'result' && (
                 <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                   <div className="bpm-result-lbl">Your heart rate</div>
@@ -3369,7 +3493,7 @@
                     <span className="bpm-result-unit">BPM</span>
                   </div>
                   <div className="bpm-result-note">
-                    {beatCount} beats in 30 seconds · {hrZone.label}
+                    {beatCount} beats in 30 seconds � {hrZone.label}
                   </div>
                   <button className="btn bg_ bfw" style={{ marginTop: '14px' }} onClick={reset}>
                     ↺ Measure again
@@ -3396,7 +3520,7 @@
       );
     }
 
-    // ── E3. Entry form ────────────────────────────────────────────────────────────
+    // -- E3. Entry form ------------------------------------------------------------
     // All form fields live here as controlled inputs.
     // Props: form state + setters, profile/ui prefs for conditional rendering.
     function EntryForm({
@@ -3411,9 +3535,13 @@
       siteIdx, setSiteIdx, siteName, siteMultiplier,
       entryTime, setEntryTime,
       not, setNot,
-      dualBg, HR_ref, targetBG,
+      dualBg, HR_ref,
+      targetBG, lowBGThreshold,
       bgZone, effBgNum,
+      bgErr, fsErr, carbErr, doseBlockReason,
+      lowBgLock,
       doseRes, liveMod, totalIOB,
+      canLogDose, logDisabledReason,
       cgmReading,
       onLog,
     }) {
@@ -3430,7 +3558,7 @@
         <div className="card">
           <div className="ct">➕ New Entry</div>
 
-          {/* ── CGM live reading pill (shown when Nightscout feed is active) ── */}
+          {/* -- CGM live reading pill (shown when Nightscout feed is active) -- */}
           {cgmReading && (
             <div className="cgm-field-pill">
               <span className="cgm-dot" style={{ background: (Date.now() - cgmReading.mills) < 10 * 60_000 ? '#00d4ff' : '#fbbf24' }} />
@@ -3447,43 +3575,46 @@
             </div>
           )}
 
-          {/* ── BG / Carbs / HR ── */}
+          {/* -- BG / Carbs / HR -- */}
           <div className="fg">
             <div className="fi">
               <label>{dualBg ? 'Blood Sugar (CGM)' : 'Blood Sugar'}</label>
-              <input type="number" inputMode="decimal" placeholder="e.g. 145"
+              <input type="number" inputMode="decimal" min={BG_ENTRY_MIN} max={BG_ENTRY_MAX} placeholder="e.g. 145"
                 value={bg} onChange={e => setBg(e.target.value)} />
+              {bgErr && <div className="inerr">{bgErr}</div>}
             </div>
             {dualBg && (
               <div className="fi">
                 <label>Fingerstick (if different from CGM)</label>
-                <input type="number" inputMode="decimal" placeholder="Overrides CGM"
+                <input type="number" inputMode="decimal" min={BG_ENTRY_MIN} max={BG_ENTRY_MAX} placeholder="Overrides CGM"
                   value={fs} onChange={e => setFs(e.target.value)} />
+                {fsErr && <div className="inerr">{fsErr}</div>}
               </div>
             )}
             <div className="fi">
               <label>Carbs (g)</label>
-              <input type="number" inputMode="decimal" placeholder="e.g. 45"
+              <input type="number" inputMode="decimal" min={CARB_ENTRY_MIN} max={CARB_ENTRY_MAX} placeholder="e.g. 45"
                 value={crbs} onChange={e => setCrbs(e.target.value)} />
+              {carbErr && <div className="inerr">{carbErr}</div>}
             </div>
             <div className="fi">
-              <label>Entry Time (optional) <span title="If blank, current device time is used. Set this when traveling or correcting a bad device clock." style={{ cursor: 'help', opacity: .7 }}>ⓘ</span></label>
+              <label>Entry Time (optional) <span title="If blank, current device time is used. Set this when traveling or correcting a bad device clock." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
               <input type="datetime-local"
                 value={entryTime}
                 onChange={e => setEntryTime(e.target.value)} />
             </div>
             <div className="fi advanced-only">
-              <label>Fat (g) <span title="Fat slows gastric emptying and causes a delayed late glucose rise." style={{ cursor: 'help', opacity: .7 }}>ⓘ</span></label>
+              <label>Fat (g) <span title="Fat slows gastric emptying and causes a delayed late glucose rise." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
               <input type="number" inputMode="decimal" placeholder="optional, e.g. 20"
                 value={fat} onChange={e => setFat(e.target.value)} />
             </div>
             <div className="fi advanced-only">
-              <label>Protein (g) <span title="Protein is partially converted to glucose over several hours." style={{ cursor: 'help', opacity: .7 }}>ⓘ</span></label>
+              <label>Protein (g) <span title="Protein is partially converted to glucose over several hours." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
               <input type="number" inputMode="decimal" placeholder="optional, e.g. 30"
                 value={protein} onChange={e => setProtein(e.target.value)} />
             </div>
             <div className="fi">
-              <label>Heart Rate (bpm) <span title="Used to estimate how fast insulin is absorbed." style={{ cursor: 'help', opacity: .7 }}>ⓘ</span></label>
+              <label>Heart Rate (bpm) <span title="Used to estimate how fast insulin is absorbed." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
               <div className="hr-field-wrap">
                 <input type="number" inputMode="decimal" placeholder={`e.g. ${HR_ref}`}
                   value={hr} onChange={e => setHr(e.target.value)} />
@@ -3507,10 +3638,10 @@
             </div>
           </div>
 
-          {/* ── Meal type + Fiber (2.2) ── */}
+          {/* -- Meal type + Fiber (2.2) -- */}
           <div className="fg" style={{ marginTop: '11px' }}>
             <div className="fi">
-              <label>Meal Type <span title="Fast carbs spike BG quickly. High fat/protein meals absorb slowly." style={{ cursor: 'help', opacity: .7 }}>ⓘ</span></label>
+              <label>Meal Type <span title="Fast carbs spike BG quickly. High fat/protein meals absorb slowly." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
               <div className="pal3">
                 {MEAL_TYPES.map((m, i) => (
                   <button key={i} className={`pab ${mealType === m.value ? 'on' : ''}`}
@@ -3521,7 +3652,7 @@
               </div>
             </div>
             <div className="fi">
-              <label>Fiber <span title="Higher fiber content further slows carbohydrate absorption." style={{ cursor: 'help', opacity: .7 }}>ⓘ</span></label>
+              <label>Fiber <span title="Higher fiber content further slows carbohydrate absorption." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
               <div className="pal3">
                 {FIBER_CLASSES.map((f, i) => (
                   <button key={i} className={`pab ${fiberClass === f.value ? 'on' : ''}`}
@@ -3533,7 +3664,7 @@
             </div>
           </div>
 
-          {/* ── Physical activity ── */}
+          {/* -- Physical activity -- */}
           <div className="fi" style={{ marginTop: '11px' }}>
             <label>Physical Activity</label>
             <div className="pal4">
@@ -3547,9 +3678,9 @@
             </div>
           </div>
 
-          {/* ── Stress level (NEW) ── */}
+          {/* -- Stress level (NEW) -- */}
           <div className="fi" style={{ marginTop: '11px' }}>
-            <label>Stress Level <span title="Physical or emotional stress raises counterregulatory hormones, which can reduce how well insulin works." style={{ cursor: 'help', opacity: .7 }}>ⓘ</span></label>
+            <label>Stress Level <span title="Physical or emotional stress raises counterregulatory hormones, which can reduce how well insulin works." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
             <div className="pal4">
               {STRESS_LEVELS.map((s, i) => (
                 <button key={i}
@@ -3561,7 +3692,7 @@
             </div>
           </div>
 
-          {/* ── Sleep state + quality + dawn ── */}
+          {/* -- Sleep state + quality + dawn -- */}
           <div style={{ marginTop: '9px' }}>
             <label className="fl-label">Sleep State</label>
             <div className={`slp ${slp ? 'on' : ''}`} onClick={() => { setSlp(v => v ? 0 : 1); if (!slp) setDawnEffect(0); }}>
@@ -3573,7 +3704,7 @@
             {slp === 1 && (
               <div className="sq-wrap">
                 <div style={{ fontSize: '11px', color: 'var(--td)', marginBottom: '6px' }}>
-                  Sleep quality <span title="Poor sleep quality amplifies the insulin-reduction effect of sleep." style={{ cursor: 'help', opacity: .7 }}>ⓘ</span>
+                  Sleep quality <span title="Poor sleep quality amplifies the insulin-reduction effect of sleep." style={{ cursor: 'help', opacity: .7 }}>?</span>
                 </div>
                 <div className="sq-row">
                   <input type="range" min={0} max={4} step={1} value={sleepQ}
@@ -3608,9 +3739,9 @@
             ) : null}
           </div>
 
-          {/* ── Hydration (NEW) ── */}
+          {/* -- Hydration (NEW) -- */}
           <div className="fi" style={{ marginTop: '11px' }}>
-            <label>Hydration <span title="Dehydration can slow insulin absorption and affect blood sugar readings." style={{ cursor: 'help', opacity: .7 }}>ⓘ</span></label>
+            <label>Hydration <span title="Dehydration can slow insulin absorption and affect blood sugar readings." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
             <div className="pal3">
               {HYDRATION_LEVELS.map((h, i) => (
                 <button key={i} className={`pab ${hydration === h.value ? 'on' : ''}`}
@@ -3621,7 +3752,7 @@
             </div>
           </div>
 
-          {/* ── Illness toggle ── */}
+          {/* -- Illness toggle -- */}
           <div style={{ marginTop: '9px' }}>
             <div className={`slp ${illness ? 'on' : ''}`} style={{ borderColor: illness ? 'var(--r)' : undefined, background: illness ? 'rgba(255,107,107,.08)' : undefined }}
               onClick={() => setIllness(v => v ? 0 : 1)}>
@@ -3632,7 +3763,7 @@
             </div>
           </div>
 
-          {/* ── Travel day toggle (3.2) ── */}
+          {/* -- Travel day toggle (3.2) -- */}
           <div style={{ marginTop: '9px' }}>
             <div className={`slp ${travelDay ? 'on-y on' : ''}`}
               style={{ borderColor: travelDay ? 'var(--y)' : undefined, background: travelDay ? 'rgba(251,191,36,.08)' : undefined }}
@@ -3654,9 +3785,9 @@
             ) : null}
           </div>
 
-          {/* ── Injection site (1.5 NEW) ── */}
+          {/* -- Injection site (1.5 NEW) -- */}
           <div className="fi" style={{ marginTop: '11px' }}>
-            <label>Injection Site <span title="Different sites absorb insulin at different speeds. Abdomen is fastest; thigh is slowest." style={{ cursor: 'help', opacity: .7 }}>ⓘ</span></label>
+            <label>Injection Site <span title="Different sites absorb insulin at different speeds. Abdomen is fastest; thigh is slowest." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
             <div className="pal4">
               {INJECTION_SITES.map((s, i) => (
                 <button key={i} className={`pab ${siteIdx === i ? 'on' : ''}`}
@@ -3672,7 +3803,7 @@
             )}
           </div>
 
-          {/* ── BG zone banner ── */}
+          {/* -- BG zone banner -- */}
           {bgZone && (
             <div className={`bgz ${bgZone}`}>
               <div className="bgdot" />
@@ -3685,7 +3816,27 @@
             </div>
           )}
 
-          {/* ── Dose result ── */}
+          {lowBgLock && (
+            <div className="hypo-screen">
+              <div className="title">Dosing Locked for Low BG</div>
+              <div className="msg">
+                Current BG is <strong>{effBgNum} mg/dL</strong>, below your low threshold of <strong>{lowBGThreshold} mg/dL</strong>.
+                Treat hypoglycemia first, recheck BG, then calculate/log insulin.
+              </div>
+            </div>
+          )}
+
+          {doseBlockReason && !lowBgLock && (
+            <div className="crit-full">{doseBlockReason}</div>
+          )}
+
+          {totalIOB > IOB_STACK_WARN_U && (
+            <div className="warn-full">
+              Bolus stacking warning: {totalIOB}u IOB is still active. Review trend and active insulin before logging another correction.
+            </div>
+          )}
+
+          {/* -- Dose result -- */}
           {doseRes ? (
             <div className="rbox">
               <div className="rtop">
@@ -3699,12 +3850,17 @@
                   {doseRes.correctionBlockedByIob && <span style={{ color: 'var(--r)' }}>Correction blocked by active IOB.</span>}
                   {doseRes.carbDose > 0 && <>{`Carbs: ${crbs}g ÷ ${doseRes.effCR}g/u (adjusted ratio) = +${doseRes.carbDose}u`}<br /></>}
                   {totalIOB > 0 && <span style={{ color: 'var(--y)' }}>⚠ {totalIOB}u IOB active — check Active Insulin tab for PK model credit</span>}
+                  {doseRes.capped && (
+                    <div className="crit-full">
+                      Dose capped at {doseRes.maxDose}u (uncapped estimate {doseRes.uncappedTotal}u). Review manually before logging.
+                    </div>
+                  )}
                   <details style={{ marginTop: '7px', cursor: 'pointer' }}>
                     <summary style={{ fontSize: '10px', color: 'var(--td)', fontFamily: 'var(--mono)', outline: 'none' }}>Why this dose?</summary>
                     <div className="rmn" style={{ marginTop: '4px' }}>
                       Sensitivity: {doseRes.seffDose} mg/dL/u ({Math.round(liveMod.seff_mult * 100)}% of your base {liveMod.seff > 0 ? Math.round(liveMod.seff / liveMod.seff_mult) : '—'})
-                      · Absorption rate: {liveMod.kabs.toFixed(2)} hr⁻¹ ({Math.round(liveMod.kabs_mult * 100)}% of base)
-                      · Injection site: {siteName} ({siteMultiplier.toFixed(2)}× — affects IOB curve, not this dose size)
+                      � Absorption rate: {liveMod.kabs.toFixed(2)} hr⁻¹ ({Math.round(liveMod.kabs_mult * 100)}% of base)
+                      � Injection site: {siteName} ({siteMultiplier.toFixed(2)}× — affects IOB curve, not this dose size)
                     </div>
                   </details>
                 </div>
@@ -3718,14 +3874,15 @@
             </div>
           )}
 
-          <button className="btn bp bfw" style={{ marginTop: '13px' }} onClick={onLog}>
-            + Log Entry
+          <button className="btn bp bfw" style={{ marginTop: '13px' }} onClick={onLog} disabled={!canLogDose}
+            title={logDisabledReason || ''}>
+            {canLogDose ? '+ Log Entry' : (logDisabledReason || 'Log unavailable')}
           </button>
         </div>
       );
     }
 
-    // ── E3b. Advanced Daily Modifiers tab ────────────────────────────────────────
+    // -- E3b. Advanced Daily Modifiers tab ----------------------------------------
     // Gated behind ui.showAdvancedModifiers. Contains 4.x features that require
     // clinical awareness — surfaced separately so they don't clutter the main form.
     function AdvancedModifiersTab({
@@ -3738,7 +3895,7 @@
     }) {
       return (
         <div>
-          {/* ── Alcohol (4.1) ── */}
+          {/* -- Alcohol (4.1) -- */}
           <div className="card">
             <div className="ct">🍷 Alcohol / Hepatic Suppression</div>
             <div className="note" style={{ marginBottom: '12px', color: 'var(--r)', borderLeft: '2px solid var(--r)', paddingLeft: '10px' }}>
@@ -3746,7 +3903,7 @@
             </div>
 
             <div className="fi" style={{ marginBottom: '14px' }}>
-              <label>Alcohol Intake <span title="Maps to hepatic glucose suppression, gastric emptying slowdown, and a mild direct sensitivity effect. The main danger is overnight hypo from loss of hepatic glucose release." style={{ cursor: 'help', opacity: .7 }}>ⓘ</span></label>
+              <label>Alcohol Intake <span title="Maps to hepatic glucose suppression, gastric emptying slowdown, and a mild direct sensitivity effect. The main danger is overnight hypo from loss of hepatic glucose release." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
               <div className="pal3">
                 {ALCOHOL_LEVELS.map((a) => (
                   <button key={a.value}
@@ -3780,14 +3937,14 @@
                 </div>
                 <div className="note" style={{ fontFamily: 'var(--mono)', color: 'var(--td)' }}>
                   Hepatic suppression: <strong style={{ color: 'var(--r)' }}>{Math.round(30 * alcoholLevel)}%</strong> reduction in basal glucose output
-                  &nbsp;·&nbsp; Gastric emptying: slowed by <strong style={{ color: 'var(--y)' }}>{Math.round(20 * alcoholLevel)}%</strong>
-                  &nbsp;·&nbsp; Sensitivity shift: <strong style={{ color: 'var(--ac)' }}>{(liveMod.fAlcohol * 100).toFixed(0)}%</strong>
+                  &nbsp;�&nbsp; Gastric emptying: slowed by <strong style={{ color: 'var(--y)' }}>{Math.round(20 * alcoholLevel)}%</strong>
+                  &nbsp;�&nbsp; Sensitivity shift: <strong style={{ color: 'var(--ac)' }}>{(liveMod.fAlcohol * 100).toFixed(0)}%</strong>
                 </div>
               </div>
             )}
           </div>
 
-          {/* ── Stimulants (4.2) ── */}
+          {/* -- Stimulants (4.2) -- */}
           <div className="card">
             <div className="ct">☕ Stimulants (Caffeine / Prescribed)</div>
             <div className="note" style={{ marginBottom: '12px', color: 'var(--y)', borderLeft: '2px solid var(--y)', paddingLeft: '10px' }}>
@@ -3795,7 +3952,7 @@
             </div>
 
             <div className="fi" style={{ marginBottom: '14px' }}>
-              <label>Stimulant Level <span title="Maps to a sensitivity penalty via epinephrine release and a transient hepatic glucose boost from mild glycogenolysis." style={{ cursor: 'help', opacity: .7 }}>ⓘ</span></label>
+              <label>Stimulant Level <span title="Maps to a sensitivity penalty via epinephrine release and a transient hepatic glucose boost from mild glycogenolysis." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
               <div className="pal4">
                 {STIMULANT_LEVELS.map((s) => (
                   <button key={s.value}
@@ -3829,14 +3986,14 @@
                 </div>
                 <div className="note" style={{ fontFamily: 'var(--mono)', color: 'var(--td)' }}>
                   Sensitivity penalty: <strong style={{ color: 'var(--r)' }}>÷{(1 + 0.2 * stimulantLevel).toFixed(2)}×</strong>
-                  &nbsp;·&nbsp; Hepatic boost: <strong style={{ color: 'var(--y)' }}>+{(0.1 * stimulantLevel).toFixed(2)} mg/dL/hr</strong> G_prod
-                  {liveMod.fStimulant != null && <>&nbsp;·&nbsp; Model factor: <strong style={{ color: 'var(--ac)' }}>{(liveMod.fStimulant * 100).toFixed(0)}%</strong></>}
+                  &nbsp;�&nbsp; Hepatic boost: <strong style={{ color: 'var(--y)' }}>+{(0.1 * stimulantLevel).toFixed(2)} mg/dL/hr</strong> G_prod
+                  {liveMod.fStimulant != null && <>&nbsp;�&nbsp; Model factor: <strong style={{ color: 'var(--ac)' }}>{(liveMod.fStimulant * 100).toFixed(0)}%</strong></>}
                 </div>
               </div>
             )}
           </div>
 
-          {/* ── Depressants (4.3) ── */}
+          {/* -- Depressants (4.3) -- */}
           <div className="card">
             <div className="ct">💤 Depressants (Benzodiazepines / Sleep Aids)</div>
             <div className="note" style={{ marginBottom: '12px', color: 'var(--p)', borderLeft: '2px solid var(--p)', paddingLeft: '10px' }}>
@@ -3844,7 +4001,7 @@
             </div>
 
             <div className="fi" style={{ marginBottom: '14px' }}>
-              <label>Depressant Level <span title="Amplifies sleep-related sensitivity reduction and slows gastric emptying via CNS and smooth-muscle relaxation." style={{ cursor: 'help', opacity: .7 }}>ⓘ</span></label>
+              <label>Depressant Level <span title="Amplifies sleep-related sensitivity reduction and slows gastric emptying via CNS and smooth-muscle relaxation." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
               <div className="pal3">
                 {DEPRESSANT_LEVELS.map((d) => (
                   <button key={d.value}
@@ -3871,13 +4028,13 @@
                 </div>
                 <div className="note" style={{ fontFamily: 'var(--mono)', color: 'var(--td)' }}>
                   Sleep effect amplified by <strong style={{ color: 'var(--p)' }}>+{Math.round(30 * depressantLevel)}%</strong>
-                  &nbsp;·&nbsp; Gastric emptying slowed by <strong style={{ color: 'var(--y)' }}>{Math.round(15 * depressantLevel)}%</strong>
+                  &nbsp;�&nbsp; Gastric emptying slowed by <strong style={{ color: 'var(--y)' }}>{Math.round(15 * depressantLevel)}%</strong>
                 </div>
               </div>
             )}
           </div>
 
-          {/* ── Nicotine (4.4) ── */}
+          {/* -- Nicotine (4.4) -- */}
           <div className="card">
             <div className="ct">🚬 Nicotine</div>
             <div className="note" style={{ marginBottom: '12px', color: 'var(--o)', borderLeft: '2px solid var(--o)', paddingLeft: '10px' }}>
@@ -3885,7 +4042,7 @@
             </div>
 
             <div className="fi" style={{ marginBottom: '14px' }}>
-              <label>Nicotine Level <span title="Vasoconstriction impairs peripheral glucose disposal at the receptor level, reducing insulin-mediated muscle uptake by ~15–20%." style={{ cursor: 'help', opacity: .7 }}>ⓘ</span></label>
+              <label>Nicotine Level <span title="Vasoconstriction impairs peripheral glucose disposal at the receptor level, reducing insulin-mediated muscle uptake by ~15–20%." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
               <div className="pal3">
                 {NICOTINE_LEVELS.map((n) => (
                   <button key={n.value}
@@ -3914,13 +4071,13 @@
                 </div>
                 <div className="note" style={{ fontFamily: 'var(--mono)', color: 'var(--td)' }}>
                   Peripheral disposal penalty: <strong style={{ color: 'var(--o)' }}>÷{(1 + 0.15 * nicotineLevel).toFixed(2)}×</strong>
-                  {liveMod.fNicotine != null && <>&nbsp;·&nbsp; Model factor: <strong style={{ color: 'var(--ac)' }}>{(liveMod.fNicotine * 100).toFixed(0)}%</strong></>}
+                  {liveMod.fNicotine != null && <>&nbsp;�&nbsp; Model factor: <strong style={{ color: 'var(--ac)' }}>{(liveMod.fNicotine * 100).toFixed(0)}%</strong></>}
                 </div>
               </div>
             )}
           </div>
 
-          {/* ── THC / Cannabis (4.5) ── */}
+          {/* -- THC / Cannabis (4.5) -- */}
           <div className="card">
             <div className="ct">🌿 THC / Cannabis</div>
             <div className="note" style={{ marginBottom: '12px', color: 'var(--g)', borderLeft: '2px solid var(--g)', paddingLeft: '10px' }}>
@@ -3928,7 +4085,7 @@
             </div>
 
             <div className="fi" style={{ marginBottom: '14px' }}>
-              <label>THC Level <span title="CB1 activation slows gastric emptying (k_ge) by 20–30%, delaying carbohydrate absorption and increasing late hyperglycemia risk." style={{ cursor: 'help', opacity: .7 }}>ⓘ</span></label>
+              <label>THC Level <span title="CB1 activation slows gastric emptying (k_ge) by 20–30%, delaying carbohydrate absorption and increasing late hyperglycemia risk." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
               <div className="pal3">
                 {THC_LEVELS.map((t) => (
                   <button key={t.value}
@@ -3955,7 +4112,7 @@
                 </div>
                 <div className="note" style={{ fontFamily: 'var(--mono)', color: 'var(--td)' }}>
                   Gastric emptying slowed by <strong style={{ color: 'var(--g)' }}>{Math.round(25 * thcLevel)}%</strong>
-                  &nbsp;·&nbsp; k_ge multiplier: <strong style={{ color: 'var(--ac)' }}>{(1 - 0.25 * thcLevel).toFixed(2)}×</strong>
+                  &nbsp;�&nbsp; k_ge multiplier: <strong style={{ color: 'var(--ac)' }}>{(1 - 0.25 * thcLevel).toFixed(2)}×</strong>
                 </div>
               </div>
             )}
@@ -3970,7 +4127,307 @@
       );
     }
 
-    // ── E4. Settings panel ────────────────────────────────────────────────────────
+    function calibrationInputFromLog(log, profile) {
+      const t = new Date(log.timestamp);
+      const timeHour = t.getHours() + t.getMinutes() / 60;
+      return {
+        bmi: safeNum(profile.bmi, DEFAULT_PROFILE.bmi),
+        hr: safeNum(log.hr, profile.HR_ref),
+        pa: safeNum(log.pa, 0),
+        sleep: safeNum(log.sleep, 0),
+        sleepQ: safeNum(log.sleepQ, 4),
+        stress: safeNum(log.stress, 0),
+        illness: safeNum(log.illness, 0),
+        hydration: safeNum(log.hydration, 0),
+        travelDay: safeNum(log.travelDay, 0),
+        alcoholLevel: safeNum(log.alcoholLevel, 0),
+        stimulantLevel: safeNum(log.stimulantLevel, 0),
+        depressantLevel: safeNum(log.depressantLevel, 0),
+        nicotineLevel: safeNum(log.nicotineLevel, 0),
+        thcLevel: safeNum(log.thcLevel, 0),
+        dawnEffect: safeNum(log.dawnEffect, 0),
+        bg: safeNum(log.bloodSugar, profile.targetBG),
+        timeHour,
+        carbs: safeNum(log.carbs, 0),
+        fat_g: safeNum(log.fat_g, 0),
+        protein_g: safeNum(log.protein_g, 0),
+        mealType: safeNum(log.mealType, 0),
+        fiberClass: safeNum(log.fiberClass, 0),
+      };
+    }
+
+    function buildCalibrationComparisons(logs, profile, sim, windowN = 8) {
+      const sorted = [...logs]
+        .filter(l => l.bloodSugar != null && !isNaN(new Date(l.timestamp).getTime()))
+        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      if (sorted.length < 3) return [];
+
+      const take = Math.max(4, windowN + 1);
+      const recent = sorted.slice(-take);
+      const rows = [];
+
+      for (let i = 1; i < recent.length; i++) {
+        const prev = recent[i - 1];
+        const cur = recent[i];
+        const dtHours = hoursBetween(prev.timestamp, cur.timestamp);
+        if (!isFinite(dtHours) || dtHours <= 0 || dtHours > 6) continue;
+
+        const histAtPrev = sorted.filter(x => new Date(x.timestamp) <= new Date(prev.timestamp));
+        if (!histAtPrev.length) continue;
+
+        // Shift timestamps so "cur.timestamp" is treated as now for deterministic reconstruction.
+        const shiftMs = Date.now() - new Date(cur.timestamp).getTime();
+        const shifted = histAtPrev.map(x => ({
+          ...x,
+          timestamp: new Date(new Date(x.timestamp).getTime() + shiftMs).toISOString(),
+        }));
+
+        const sv = computeStateVars(shifted, profile, sim);
+        const pkState = reconstructPK(shifted, profile, sim);
+        const mealState = reconstructMealState(shifted, profile, sim);
+        const inp = calibrationInputFromLog(prev, profile);
+        const startG = safeNum(prev.bloodSugar, profile.targetBG);
+        const simOut = simulateProjection(startG, pkState, sv, inp, profile, sim, dtHours, mealState);
+        const predicted = simOut.pts.at(-1)?.G;
+        const actual = safeNum(cur.bloodSugar, null);
+        if (!isFinite(predicted) || !isFinite(actual)) continue;
+
+        const err = predicted - actual;
+        rows.push({
+          timestamp: cur.timestamp,
+          horizonHr: Math.round(dtHours * 100) / 100,
+          predicted: Math.round(predicted),
+          actual: Math.round(actual),
+          err: Math.round(err * 10) / 10,
+        });
+      }
+
+      return rows.slice(-windowN);
+    }
+
+    function runCoreModelUnitTests() {
+      const results = [];
+      const push = (name, ok, detail) => results.push({ name, ok: !!ok, detail });
+
+      const tProfile = {
+        ...DEFAULT_PROFILE,
+        age: 30,
+        sex: 'other',
+        bmi: DEFAULT_PROFILE.BMI_ref,
+        corrFactor: 50,
+        targetBG: 100,
+        maxDose: 10,
+      };
+      const tSim = { ...DEFAULT_SIM_PARAMS };
+      const sv = { E_ex: 0, L: 0, H: 0 };
+      const inp = {
+        bmi: tProfile.bmi, hr: tProfile.HR_ref, pa: 0,
+        sleep: 0, sleepQ: 4, stress: 0, illness: 0, hydration: 0,
+        travelDay: 0, alcoholLevel: 0, stimulantLevel: 0, depressantLevel: 0, nicotineLevel: 0, thcLevel: 0,
+        dawnEffect: 0, bg: tProfile.targetBG, timeHour: 12, carbs: 0, fat_g: 0, protein_g: 0, mealType: 0, fiberClass: 0,
+      };
+
+      const k = calcKabs(inp, tProfile, tSim);
+      push('calcKabs', isFinite(k.kabs) && Math.abs(k.kabs - tSim.k_abs0) < 1e-6, `kabs=${k.kabs.toFixed(4)}`);
+
+      const s = calcSeff(inp, sv, tProfile, tSim);
+      push('calcSeff', isFinite(s.seff) && s.seff > 30 && s.seff < 60, `seff=${s.seff.toFixed(2)}`);
+
+      const dose = calcDose(420, 350, sv, { ...inp, bg: 420, carbs: 350 }, tProfile, tSim, null);
+      push('calcDose', !!dose && dose.capped && dose.total === tProfile.maxDose, dose ? `total=${dose.total}, uncapped=${dose.uncappedTotal}` : 'null');
+
+      const blockedDose = calcDose(550, 30, sv, { ...inp, bg: 550, carbs: 30 }, tProfile, tSim, null);
+      push('calcDose bounds', blockedDose === null, blockedDose === null ? 'blocked as expected' : 'unexpected non-null');
+
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const testLogs = [normalizeLogEntry({
+        id: 'u1',
+        timestamp: oneHourAgo,
+        bloodSugar: 180,
+        carbs: 30,
+        insulinDose: 6,
+        hr: tProfile.HR_ref,
+        pa: 0,
+        sleep: 0,
+        sleepQ: 4,
+        stress: 0,
+        illness: 0,
+        hydration: 0,
+        travelDay: 0,
+        alcoholLevel: 0,
+        stimulantLevel: 0,
+        depressantLevel: 0,
+        nicotineLevel: 0,
+        thcLevel: 0,
+        site: 'abdomen',
+        siteMultiplier: 1,
+        fat_g: 0,
+        protein_g: 0,
+        mealType: 0,
+        fiberClass: 0,
+        kabs_rel: 1,
+        seff_mult: 1,
+        notes: '',
+      }, 0)];
+
+      const pk = reconstructPK(testLogs, tProfile, tSim);
+      push('reconstructPK', isFinite(pk.Q_sc) && isFinite(pk.Q_p) && pk.Q_sc >= 0 && pk.Q_p >= 0, `Q_sc=${pk.Q_sc.toFixed(2)}, Q_p=${pk.Q_p.toFixed(2)}`);
+
+      const mealState = reconstructMealState(testLogs, tProfile, tSim);
+      const proj = simulateProjection(180, pk, sv, inp, tProfile, tSim, 2, mealState);
+      const bounded = proj.pts.every(p => p.G >= 40 && p.G <= 500);
+      push('simulateProjection', proj.pts.length > 5 && bounded, `pts=${proj.pts.length}, end=${proj.pts.at(-1)?.G}`);
+
+      return results;
+    }
+
+    function CalibrationTab({ logs, profile, sim, setProfile, setSim, showT }) {
+      const [windowN, setWindowN] = useState(8);
+      const [tests, setTests] = useState([]);
+
+      const rows = useMemo(() => buildCalibrationComparisons(logs, profile, sim, windowN), [logs, profile, sim, windowN]);
+      const stats = useMemo(() => {
+        if (!rows.length) return null;
+        const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+        const errs = rows.map(r => r.err);
+        const meanErr = avg(errs);
+        const mae = avg(errs.map(e => Math.abs(e)));
+        const rmse = Math.sqrt(avg(errs.map(e => e * e)));
+        const short = rows.filter(r => r.horizonHr <= 1.5).map(r => r.err);
+        const long = rows.filter(r => r.horizonHr > 1.5).map(r => r.err);
+        return {
+          meanErr: Math.round(meanErr * 10) / 10,
+          mae: Math.round(mae * 10) / 10,
+          rmse: Math.round(rmse * 10) / 10,
+          shortErr: Math.round(avg(short) * 10) / 10,
+          longErr: Math.round(avg(long) * 10) / 10,
+        };
+      }, [rows]);
+
+      const suggestion = useMemo(() => {
+        if (!stats) return null;
+        const corrFactor = Math.round(profile.corrFactor * clamp(1 + stats.meanErr / 300, 0.85, 1.15) * 10) / 10;
+        const kAbs0 = Math.round(sim.k_abs0 * clamp(1 + stats.shortErr / 400, 0.85, 1.15) * 1000) / 1000;
+        const kBasal = Math.round(sim.k_basal * clamp(1 + stats.longErr / 500, 0.8, 1.2) * 10000) / 10000;
+        return { corrFactor, kAbs0, kBasal };
+      }, [stats, profile.corrFactor, sim.k_abs0, sim.k_basal]);
+
+      const applySuggestion = () => {
+        if (!suggestion) return;
+        setProfile(p => ({ ...p, corrFactor: suggestion.corrFactor }));
+        setSim(s => ({ ...s, k_abs0: suggestion.kAbs0, k_basal: suggestion.kBasal }));
+        showT('Applied calibration nudges to corrFactor, k_abs0, and k_basal.');
+      };
+
+      const passCount = tests.filter(t => t.ok).length;
+
+      return (
+        <>
+          <div className="card">
+            <div className="ct">Calibration Mode</div>
+            <div className="note" style={{ marginBottom: '12px' }}>
+              Compares recent real BG readings against retrospective model predictions, then suggests small parameter nudges.
+              Use this as guidance and review clinically.
+            </div>
+            <div className="sg">
+              <div className="fi">
+                <label>Comparison window (N)</label>
+                <input type="number" min="3" max="20" step="1" value={windowN}
+                  onChange={e => setWindowN(clamp(parseInt(e.target.value) || 8, 3, 20))} />
+              </div>
+              <div className="fi" style={{ justifyContent: 'flex-end', display: 'flex' }}>
+                <button className="btn bg_ bsm" onClick={() => setTests(runCoreModelUnitTests())}>Run Core Model Tests</button>
+              </div>
+            </div>
+
+            {!rows.length && (
+              <div className="es" style={{ padding: '14px 0' }}>
+                <div className="ei">...</div>
+                Need at least 3 timed BG entries for calibration comparisons.
+              </div>
+            )}
+
+            {stats && (
+              <>
+                <div className="svg" style={{ marginTop: '10px' }}>
+                  <div className="svc">
+                    <div className="svv" style={{ color: stats.meanErr > 0 ? 'var(--y)' : 'var(--g)' }}>{stats.meanErr}</div>
+                    <div className="svl">Mean Error</div>
+                    <div className="note">pred - actual (mg/dL)</div>
+                  </div>
+                  <div className="svc">
+                    <div className="svv" style={{ color: 'var(--ac)' }}>{stats.mae}</div>
+                    <div className="svl">MAE</div>
+                    <div className="note">absolute error (mg/dL)</div>
+                  </div>
+                  <div className="svc">
+                    <div className="svv" style={{ color: 'var(--o)' }}>{stats.rmse}</div>
+                    <div className="svl">RMSE</div>
+                    <div className="note">root mean square error</div>
+                  </div>
+                </div>
+
+                {suggestion && (
+                  <div className="warn-full">
+                    Suggested nudges:
+                    {' '}corrFactor {profile.corrFactor} {'>'} <strong>{suggestion.corrFactor}</strong>,
+                    {' '}k_abs0 {sim.k_abs0} {'>'} <strong>{suggestion.kAbs0}</strong>,
+                    {' '}k_basal {sim.k_basal} {'>'} <strong>{suggestion.kBasal}</strong>
+                    <div style={{ marginTop: '8px' }}>
+                      <button className="btn bp bsm" onClick={applySuggestion}>Apply Suggested Nudges</button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="div" />
+                <table className="lt">
+                  <thead>
+                    <tr><th>Time</th><th>Horizon</th><th>Pred</th><th>Actual</th><th>Error</th></tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r, i) => (
+                      <tr key={i}>
+                        <td>{fmtDT(r.timestamp)}</td>
+                        <td>{r.horizonHr}h</td>
+                        <td>{r.predicted}</td>
+                        <td>{r.actual}</td>
+                        <td style={{ color: r.err > 0 ? 'var(--y)' : 'var(--g)' }}>{r.err}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="ct">Core Function Unit Tests</div>
+            {!tests.length && <div className="es"><div className="ei">...</div>Run tests to validate model core functions.</div>}
+            {tests.length > 0 && (
+              <>
+                <div className="note" style={{ marginBottom: '8px' }}>{passCount}/{tests.length} tests passing</div>
+                <table className="lt">
+                  <thead>
+                    <tr><th>Test</th><th>Status</th><th>Detail</th></tr>
+                  </thead>
+                  <tbody>
+                    {tests.map((t, i) => (
+                      <tr key={i}>
+                        <td>{t.name}</td>
+                        <td style={{ color: t.ok ? 'var(--g)' : 'var(--r)' }}>{t.ok ? 'PASS' : 'FAIL'}</td>
+                        <td style={{ color: 'var(--td)' }}>{t.detail}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+          </div>
+        </>
+      );
+    }
+
+    // -- E4. Settings panel --------------------------------------------------------
     function SField({ label, k, s, set, step = 'any' }) {
       return (
         <div className="fi">
@@ -4017,7 +4474,7 @@
               <span className="note">Affects both absorption speed and insulin sensitivity. Reference = {profile.BMI_ref} kg/m².</span>
             </div>
             <div className="fi">
-              <label>Sex <span title="Affects baseline insulin sensitivity. Females tend toward slightly higher peripheral sensitivity on average." style={{ cursor: 'help', opacity: .7 }}>ⓘ</span></label>
+              <label>Sex <span title="Affects baseline insulin sensitivity. Females tend toward slightly higher peripheral sensitivity on average." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
               <div className="pal3">
                 {[['M', '♂ Male'], ['F', '♀ Female'], ['other', '⚧ Other']].map(([val, lbl]) => (
                   <button key={val}
@@ -4045,6 +4502,7 @@
             <SField label="Low BG threshold (mg/dL)" k="lowBG" s={profile} set={setProfile} />
             <SField label="High BG threshold (mg/dL)" k="highBG" s={profile} set={setProfile} />
             <SField label="Basal Rate (units/hr)" k="basalRate" s={profile} set={setProfile} step="0.05" />
+            <SField label="Max single dose (u)" k="maxDose" s={profile} set={setProfile} step="0.5" />
           </div>
 
           {/* Advanced coefficients */}
@@ -4073,6 +4531,11 @@
             <div className="sst" style={{ fontSize: '10px', marginTop: '6px' }}>Insulin Clearance — how fast insulin leaves the bloodstream</div>
             <div className="sg">
               <SField label="k_clear — plasma clearance rate (hr⁻¹)" k="k_clear" s={sim} set={setSim} step="0.05" />
+              <div style={{ gridColumn: '1/-1' }}>
+                <span className="note">
+                  Unit audit: k_clear is stored as hr⁻¹. PK internals convert it to min⁻¹ only where required (k_e in BloodGlucoseInsulinModel).
+                </span>
+              </div>
             </div>
             <div className="sst" style={{ fontSize: '10px', marginTop: '6px' }}>Nonlinear PK Model — saturable absorption (BloodGlucoseInsulinModel)</div>
             <div className="sg">
@@ -4153,7 +4616,7 @@
               <div style={{ gridColumn: '1/-1' }}>
                 <span className="note">
                   Keep these coefficients subtle. depress_gastric_slow of 0.10–0.15 is realistic — reflects general CNS and smooth-muscle relaxation rather than a direct glucose pathway effect.
-                  depress_sleep_amplify of 0.30 amplifies the sleep Î· factor when depressants are active, modelling deepened GH-mediated resistance.
+                  depress_sleep_amplify of 0.30 amplifies the sleep η factor when depressants are active, modelling deepened GH-mediated resistance.
                 </span>
               </div>
             </div>
@@ -4229,7 +4692,7 @@
           </>)}
 
           {/* CGM / Nightscout */}
-          <div className="sst">📡 CGM Live Feed · Nightscout REST</div>
+          <div className="sst">📡 CGM Live Feed � Nightscout REST</div>
           <div className="note" style={{ marginBottom: '12px', lineHeight: '1.9' }}>
             Reads glucose data from your own Nightscout instance via its public REST API. Works with
             Dexcom, FreeStyle Libre, Medtronic, xDrip+, Spike, Tidepool, and any other CGM that
@@ -4247,7 +4710,7 @@
             {cgmCfg.enabled && (<>
               {/* URL */}
               <div className="fi" style={{ gridColumn: '1/-1' }}>
-                <label>Nightscout URL <span title="Your Nightscout base URL, e.g. https://mynightscout.herokuapp.com" style={{ cursor: 'help', opacity: .7 }}>ⓘ</span></label>
+                <label>Nightscout URL <span title="Your Nightscout base URL, e.g. https://mynightscout.herokuapp.com" style={{ cursor: 'help', opacity: .7 }}>?</span></label>
                 <input type="url" placeholder="https://yournightscout.example.com"
                   value={cgmCfg.url}
                   onChange={e => setCgmCfg(x => ({ ...x, url: e.target.value.trim() }))} />
@@ -4268,7 +4731,7 @@
 
               {cgmCfg.authMethod === 'secret' && (
                 <div className="fi" style={{ gridColumn: '1/-1' }}>
-                  <label>API Secret <span title="The plain-text API_SECRET you set in Nightscout. It is hashed to SHA-1 before being sent — never stored in plain text on a server." style={{ cursor: 'help', opacity: .7 }}>ⓘ</span></label>
+                  <label>API Secret <span title="The plain-text API_SECRET you set in Nightscout. It is hashed to SHA-1 before being sent — never stored in plain text on a server." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
                   <input type="password" placeholder="Your Nightscout API_SECRET"
                     value={cgmCfg.apiSecret}
                     onChange={e => setCgmCfg(x => ({ ...x, apiSecret: e.target.value }))} />
@@ -4276,7 +4739,7 @@
               )}
               {cgmCfg.authMethod === 'token' && (
                 <div className="fi" style={{ gridColumn: '1/-1' }}>
-                  <label>Access Token <span title="A Nightscout access token (Admin Tools → Add new subject). Appended as ?token=… to the request URL." style={{ cursor: 'help', opacity: .7 }}>ⓘ</span></label>
+                  <label>Access Token <span title="A Nightscout access token (Admin Tools → Add new subject). Appended as ?token=… to the request URL." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
                   <input type="password" placeholder="yoursubject-xxxxxxxxxxxxxxxxxxxx"
                     value={cgmCfg.token}
                     onChange={e => setCgmCfg(x => ({ ...x, token: e.target.value }))} />
@@ -4307,7 +4770,7 @@
                 2. Your phone app → uploads readings to your Nightscout server in the cloud.<br />
                 3. This app → polls <code style={{ color: 'var(--ac)', fontSize: '11px' }}>/api/v1/entries/current.json</code> every {cgmCfg.pollMins} min.<br />
                 ✓ Nothing is altered. No Bluetooth, no receiver pairing, no CGM app modification.<br />
-                Supported: Dexcom G5/G6/G7/ONE · FreeStyle Libre 1/2/3 · Medtronic 640G/670G/770G · xDrip+ · Spike · Glimp
+                Supported: Dexcom G5/G6/G7/ONE � FreeStyle Libre 1/2/3 � Medtronic 640G/670G/770G � xDrip+ � Spike � Glimp
               </div>
             </>)}
           </div>
@@ -4324,7 +4787,7 @@
       );
     }
 
-    // ── E5. BG + Insulin chart ────────────────────────────────────────────────────
+    // -- E5. BG + Insulin chart ----------------------------------------------------
     function ProjectionChart({ logs, projection }) {
       const ref = useRef(null);
       const inst = useRef(null);
@@ -4348,7 +4811,7 @@
           : [];
         const nullPad = new Array(hist.length).fill(null);
 
-        // ── 5.1 Confidence band arrays ─────────────────────────────────────────
+        // -- 5.1 Confidence band arrays -----------------------------------------
         // The first projection point (t=0) has u=0, so the band starts tight and
         // widens naturally as the √t horizon grows.
         const projUpper = projection.map(p => p.band_upper ?? p.G);
@@ -4373,7 +4836,7 @@
                 pointBorderColor: '#0a0e1a', pointBorderWidth: 2
               },
 
-              // ── Upper CI band (fills down to the lower band dataset below it) ──
+              // -- Upper CI band (fills down to the lower band dataset below it) --
               {
                 type: 'line', label: 'Upper 90% CI',
                 data: [...nullPad, ...projUpper],
@@ -4381,7 +4844,7 @@
                 fill: '+1',   // Chart.js 4: fill from this to the next dataset
                 pointRadius: 0, tension: .3, yAxisID: 'yBG'
               },
-              // ── Lower CI band ──────────────────────────────────────────────────
+              // -- Lower CI band --------------------------------------------------
               {
                 type: 'line', label: 'Lower 90% CI',
                 data: [...nullPad, ...projLower],
@@ -4454,7 +4917,7 @@
       return <div className="chwrap"><canvas ref={ref} /></div>;
     }
 
-    // ── E6. Log table ─────────────────────────────────────────────────────────────
+    // -- E6. Log table -------------------------------------------------------------
     function LogTable({ logs, profile, onDelete }) {
       if (!logs.length)
         return <div className="es"><div className="ei">📋</div>No entries yet</div>;
@@ -4519,15 +4982,15 @@
     }
 
 
-    // ═══════════════════════════════════════════════════════════════════════════════
+    // -------------------------------------------------------------------------------
     //  F.  APP — STATE + ORCHESTRATION
     //
     //  App owns all persisted state. It derives computed values (modifiers,
     //  projection, IOB) and passes them down into pure components.
     //  No physiologic logic lives here — App only wires things together.
-    // ═══════════════════════════════════════════════════════════════════════════════
+    // -------------------------------------------------------------------------------
     function App() {
-      // ── Persisted state ──────────────────────────────────────────────────────────
+      // -- Persisted state ----------------------------------------------------------
       const [profile, setProfile] = useState(() => loadStored(STORE_PROFILE, DEFAULT_PROFILE));
       const [sim, setSim] = useState(() => loadStored(STORE_SIM, DEFAULT_SIM_PARAMS));
       const [ui, setUi] = useState(() => loadStored(STORE_UI, DEFAULT_UI_STATE));
@@ -4537,7 +5000,7 @@
       });
       const [cgmCfg, setCgmCfg] = useState(() => loadStored(STORE_CGM, DEFAULT_CGM_CONFIG));
 
-      // ── UI state ─────────────────────────────────────────────────────────────────
+      // -- UI state -----------------------------------------------------------------
       const [tab, setTab] = useState('log');
       const [toast, setToast] = useState(null);
       // CGM runtime state (not persisted)
@@ -4545,7 +5008,7 @@
       const [cgmReading, setCgmReading] = useState(null); // latest reading object
       const [cgmHistory, setCgmHistory] = useState([]);   // last ~12 readings for mini-trend
 
-      // ── Entry form state (one state var per form field) ───────────────────────────
+      // -- Entry form state (one state var per form field) ---------------------------
       const [bg, setBg] = useState('');
       const [fs, setFs] = useState('');
       const [crbs, setCrbs] = useState('');
@@ -4571,7 +5034,7 @@
       const [siteIdx, setSiteIdx] = useState(0);       // 0=abdomen
       const [not, setNot] = useState('');
 
-      // ── Persistence effects ───────────────────────────────────────────────────────
+      // -- Persistence effects -------------------------------------------------------
       useEffect(() => { localStorage.setItem(STORE_PROFILE, JSON.stringify(profile)); }, [profile]);
       useEffect(() => { localStorage.setItem(STORE_SIM, JSON.stringify(sim)); }, [sim]);
       useEffect(() => { localStorage.setItem(STORE_UI, JSON.stringify(ui)); }, [ui]);
@@ -4586,7 +5049,7 @@
         return () => window.removeEventListener('beforeunload', h);
       }, [logs]);
 
-      // ── CGM polling effect ────────────────────────────────────────────────────────
+      // -- CGM polling effect --------------------------------------------------------
       useEffect(() => {
         if (!cgmCfg.enabled || !cgmCfg.url) { setCgmStatus('idle'); return; }
 
@@ -4615,7 +5078,7 @@
 
       const showT = (msg, type = 'ok') => setToast({ msg, type, id: Date.now() });
 
-      // ── Derived physiologic state (memoised) ──────────────────────────────────────
+      // -- Derived physiologic state (memoised) --------------------------------------
       const sv = useMemo(() => computeStateVars(logs, profile, sim), [logs, profile, sim]);
       const pkState = useMemo(() => reconstructPK(logs, profile, sim), [logs, profile, sim]);
       const mealState = useMemo(() => reconstructMealState(logs, profile, sim), [logs, profile, sim]);
@@ -4623,7 +5086,14 @@
 
       const hrNum = safeNum(hr, profile.HR_ref);
       const paNum = ACTIVITY_LEVELS[paiX].mets;
-      const effBgNum = safeNum(fs) || safeNum(bg) || profile.targetBG;
+      const entryValidation = useMemo(() => validateEntryInputs({
+        bg, fs, crbs, dualBg: ui.dualBg,
+      }), [bg, fs, crbs, ui.dualBg]);
+      const effBgNum = entryValidation.effBg ?? profile.targetBG;
+      const lowBgLock = entryValidation.effBg != null
+        && !entryValidation.bgErr
+        && !entryValidation.fsErr
+        && entryValidation.effBg < profile.lowBG;
 
       // Injection site — per-dose factor derived from siteIdx and current profile multipliers.
       // NOTE: site does NOT feed into inp / calcKabs — it is per-dose, not a continuous modifier.
@@ -4664,7 +5134,7 @@
       const liveMod = useMemo(() => computeModifiers(inp, sv, profile, sim, { pkState, mealState }), [inp, sv, profile, sim, pkState, mealState]);
       const bgZone = (effBgNum > 0 && effBgNum !== profile.targetBG) ? zone(effBgNum, profile) : null;
 
-      // ── PK model state (BloodGlucoseInsulinModel) ─────────────────────────────
+      // -- PK model state (BloodGlucoseInsulinModel) -----------------------------
       // Rebuilt whenever logs, profile, sim, or the live modifier snapshot changes.
       // effectiveSubqIob = physically-grounded IOB credit used for dose correction.
       const pkModelState = useMemo(() => {
@@ -4674,17 +5144,23 @@
       }, [logs, profile, sim, liveMod]);
 
       const pkCorrRec = useMemo(() => {
-        if (!effBgNum || effBgNum <= 0) return null;
+        if (!entryValidation.canCompute || lowBgLock) return null;
         const model = buildPkModel(logs, profile, sim);
         model.setSensitivityFactors(Date.now(), mapModifiersToSensFactors(liveMod));
         return model.getCorrectionRecommendation(effBgNum, Date.now(), profile.targetBG, 'effectiveSubq');
-      }, [logs, profile, sim, liveMod, effBgNum]);
+      }, [logs, profile, sim, liveMod, effBgNum, entryValidation.canCompute, lowBgLock]);
       const doseRes = useMemo(() => {
-        if (isNaN(effBgNum) || effBgNum <= 0) return null;
+        if (!entryValidation.canCompute || lowBgLock) return null;
         return calcDose(effBgNum, safeNum(crbs), sv, inp, profile, sim, pkCorrRec);
-      }, [effBgNum, crbs, sv, inp, profile, sim, pkCorrRec]);
+      }, [entryValidation.canCompute, lowBgLock, effBgNum, crbs, sv, inp, profile, sim, pkCorrRec]);
+      const logDisabledReason =
+        entryValidation.bgErr || entryValidation.fsErr || entryValidation.carbErr ||
+        (lowBgLock ? `BG below low threshold (${profile.lowBG} mg/dL)` : null) ||
+        entryValidation.doseBlockReason ||
+        (!doseRes ? 'Enter valid BG/carbs to calculate dose' : null);
+      const canLogDose = !logDisabledReason;
 
-      // ── IOB (polled every 30 s) ───────────────────────────────────────────────────
+      // -- IOB (polled every 30 s) ---------------------------------------------------
       const [iobList, setIobList] = useState([]);
       const [totalIOB, setTIOB] = useState(0);
       useEffect(() => {
@@ -4700,24 +5176,30 @@
         return () => clearInterval(id);
       }, [logs, profile, sim]);
 
-      // ── Forward projection ────────────────────────────────────────────────────────
+      // -- Forward projection --------------------------------------------------------
       const { pts: projection, U_scalar: projUScalar } = useMemo(() => {
         const startG = effBgNum !== profile.targetBG ? effBgNum : (logs[0]?.bloodSugar || profile.targetBG);
         return simulateProjection(startG, pkState, sv, inp, profile, sim, 4, mealState);
       }, [effBgNum, pkState, sv, inp, profile, sim, logs, mealState]);
 
-      // ── Event handlers ────────────────────────────────────────────────────────────
+      // -- Event handlers ------------------------------------------------------------
       const handleLog = () => {
-        const bgV = safeNum(bg, null);
-        const fsV = safeNum(fs, null);
-        const effBg = fsV || bgV;
+        if (entryValidation.bgErr || entryValidation.fsErr) { showT('Fix blood sugar input range before logging', 'err'); return; }
+        if (entryValidation.carbErr) { showT('Fix carb input range before logging', 'err'); return; }
+        if (lowBgLock) { showT(`Dose logging locked while BG is below ${profile.lowBG} mg/dL`, 'err'); return; }
+        if (entryValidation.doseBlockReason) { showT(entryValidation.doseBlockReason, 'err'); return; }
+
+        const bgV = entryValidation.bgV;
+        const fsV = ui.dualBg ? entryValidation.fsV : null;
+        const effBg = entryValidation.effBg;
         if (!effBg || effBg <= 0) { showT('Enter a valid blood sugar reading', 'err'); return; }
         const timestampIso = localInputToISO(entryTime);
         if (!timestampIso) { showT('Enter a valid entry time', 'err'); return; }
-        const cV = safeNum(crbs, 0);
+        const cV = safeNum(entryValidation.carbV, 0);
         const fatV = safeNum(fat, 0);
         const proteinV = safeNum(protein, 0);
         const dose = doseRes || calcDose(effBg, cV, sv, inp, profile, sim, pkCorrRec);
+        if (!dose) { showT('Dose calculation blocked by safety limits', 'err'); return; }
         const entry = makeLogEntry({
           bgV, fsV, cV, hrNum, paNum, slp, sleepQ, stress, illness, hydration,
           site: INJECTION_SITES[siteIdx].profileKey.replace('siteMult_', ''),
@@ -4730,7 +5212,8 @@
         }, dose, liveMod);
         setLogs(prev => [entry, ...prev]);
         setBg(''); setFs(''); setCrbs(''); setEntryTime(''); setHr(''); setFat(''); setProtein(''); setNot('');
-        showT(`Logged ${dose.total}u · sensitivity ${dose.seffDose} mg/dL/u`);
+        if (dose.capped) showT(`Logged capped dose ${dose.total}u (cap ${dose.maxDose}u; uncapped ${dose.uncappedTotal}u)`, 'err');
+        else showT(`Logged ${dose.total}u � sensitivity ${dose.seffDose} mg/dL/u`);
       };
 
       const handleCSV = e => {
@@ -4756,7 +5239,7 @@
       const projEnd = projection.at(-1);
       const projBgEnd = projEnd?.G;
 
-      // ── Render ────────────────────────────────────────────────────────────────────
+      // -- Render --------------------------------------------------------------------
       return (
         <div className={`app${ui.simpleMode ? ' simple' : ''}`}>
 
@@ -4765,7 +5248,7 @@
             <div className="hl">
               <div className="logo">💉</div>
               <div>
-                <div className="at">InsulinAbacus</div>
+                <div className="at">InsulinTrack</div>
                 <div className="as">Insulin Action Model</div>
               </div>
             </div>
@@ -4773,7 +5256,7 @@
               {/* CGM badge — only when enabled */}
               {cgmCfg.enabled && cgmCfg.url && (
                 <div className={`cgm-badge ${cgmStatus === 'live' ? 'live' : cgmStatus === 'stale' ? 'stale' : cgmStatus === 'error' ? 'error' : 'polling'}`}
-                  title={cgmReading ? `${deviceLabel(cgmReading.device)} · ${Math.round((Date.now() - cgmReading.mills) / 60_000)} min ago` : 'Waiting for CGM data…'}>
+                  title={cgmReading ? `${deviceLabel(cgmReading.device)} � ${Math.round((Date.now() - cgmReading.mills) / 60_000)} min ago` : 'Waiting for CGM data…'}>
                   <span className="cgm-dot" style={{ background: cgmStatus === 'live' ? '#00d4ff' : cgmStatus === 'stale' ? '#fbbf24' : cgmStatus === 'error' ? '#ff6b6b' : '#64748b' }} />
                   {cgmReading ? (
                     <>
@@ -4826,6 +5309,7 @@
               ['log', '📋 Log'],
               ['iob', '⏱ Active Insulin'],
               ['history', '📊 Logs & Charts'],
+              ['calibration', '🎯 Calibration'],
               ...(ui.showAdvancedModifiers ? [['advanced', '🧪 Advanced']] : []),
               ['settings', '⚙️ Settings'],
             ].map(([id, lbl]) => (
@@ -4835,8 +5319,16 @@
             ))}
           </div>
 
-          {/* ══════ LOG TAB ══════════════════════════════════════════════════════════ */}
+          {/* ------ LOG TAB ---------------------------------------------------------- */}
           {tab === 'log' && (<>
+            {logs.length < CALIBRATION_MIN_LOGS && (
+              <div className="card" style={{ borderColor: 'rgba(251,191,36,.35)', background: 'rgba(251,191,36,.06)' }}>
+                <div className="ct">Model Calibration Status</div>
+                <div className="warn-full" style={{ marginTop: 0 }}>
+                  Model is using default population values, not calibrated to you. Log at least {CALIBRATION_MIN_LOGS} entries to improve personalization.
+                </div>
+              </div>
+            )}
             <EntryForm
               bg={bg} setBg={setBg}
               fs={fs} setFs={setFs}
@@ -4860,8 +5352,16 @@
               not={not} setNot={setNot}
               dualBg={ui.dualBg} HR_ref={profile.HR_ref}
               targetBG={profile.targetBG}
+              lowBGThreshold={profile.lowBG}
               bgZone={bgZone} effBgNum={effBgNum}
+              bgErr={entryValidation.bgErr}
+              fsErr={entryValidation.fsErr}
+              carbErr={entryValidation.carbErr}
+              doseBlockReason={entryValidation.doseBlockReason}
+              lowBgLock={lowBgLock}
               doseRes={doseRes} liveMod={liveMod} totalIOB={totalIOB}
+              canLogDose={canLogDose}
+              logDisabledReason={logDisabledReason}
               cgmReading={cgmReading}
               onLog={handleLog}
             />
@@ -4903,7 +5403,7 @@
             )}
           </>)}
 
-          {/* ══════ ACTIVE INSULIN TAB ═══════════════════════════════════════════════ */}
+          {/* ------ ACTIVE INSULIN TAB ----------------------------------------------- */}
           {tab === 'iob' && (<>
             <div className="card">
               <div className="ct">⏱ Active Insulin</div>
@@ -4931,7 +5431,7 @@
                     return (
                       <div className="iobdr" key={l.id}>
                         <span>{fmtDT(l.timestamp)}</span>
-                        <span style={{ color: 'var(--td)' }}>{l.insulinDose}u · {ed}h eff.</span>
+                        <span style={{ color: 'var(--td)' }}>{l.insulinDose}u � {ed}h eff.</span>
                         <span style={{ color: 'var(--ac)' }}>{l.rem}u ({Math.max(0, Math.round((1 - el / ed) * 100))}%)</span>
                       </div>
                     );
@@ -4941,7 +5441,7 @@
               {!iobList.length && <div className="es" style={{ paddingTop: '22px' }}><div className="ei">✅</div>No active insulin</div>}
             </div>
 
-            {/* ── PK Model state card ── */}
+            {/* -- PK Model state card -- */}
             <div className="card">
               <div className="ct">🔬 Two-Compartment PK State</div>
               <div className="note" style={{ marginBottom: '12px' }}>
@@ -5085,7 +5585,7 @@
             </div>
           </>)}
 
-          {/* ══════ LOGS & CHARTS TAB ════════════════════════════════════════════════ */}
+          {/* ------ LOGS & CHARTS TAB ------------------------------------------------ */}
           {tab === 'history' && (<>
             <div className="card">
               <div className="ct">📈 Blood Sugar, Insulin & Forecast</div>
@@ -5125,7 +5625,19 @@
             </div>
           </>)}
 
-          {/* ══════ ADVANCED DAILY MODIFIERS TAB ════════════════════════════════════ */}
+          {/* ------ CALIBRATION TAB ------------------------------------------------- */}
+          {tab === 'calibration' && (
+            <CalibrationTab
+              logs={logs}
+              profile={profile}
+              sim={sim}
+              setProfile={setProfile}
+              setSim={setSim}
+              showT={showT}
+            />
+          )}
+
+          {/* ------ ADVANCED DAILY MODIFIERS TAB ------------------------------------ */}
           {tab === 'advanced' && (
             <AdvancedModifiersTab
               alcoholLevel={alcoholLevel} setAlcoholLevel={setAlcoholLevel}
@@ -5137,7 +5649,7 @@
             />
           )}
 
-          {/* ══════ SETTINGS TAB ═════════════════════════════════════════════════════ */}
+          {/* ------ SETTINGS TAB ----------------------------------------------------- */}
           {tab === 'settings' && (
             <SettingsPanel
               profile={profile} setProfile={setProfile}

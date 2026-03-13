@@ -9,6 +9,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=DM+Sans:wght@300;400;500;600&display=swap"
     rel="stylesheet" />
   <style>
@@ -778,6 +780,42 @@
       text-align: center;
     }
 
+    /* -- Chart sub-tabs ---------------------------------------------------------- */
+    .chart-tabs {
+      display: flex;
+      gap: 3px;
+      background: var(--s2);
+      border: 1px solid var(--bd);
+      border-radius: 10px;
+      padding: 3px;
+      margin-bottom: 16px;
+    }
+
+    .chart-tab {
+      flex: 1;
+      padding: 6px 6px;
+      border: none;
+      background: none;
+      color: var(--td);
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 500;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all .2s;
+      white-space: nowrap;
+    }
+
+    .chart-tab.on {
+      background: var(--s1);
+      color: var(--ac);
+      box-shadow: var(--glow);
+    }
+
+    .chart-tab:hover:not(.on) {
+      color: var(--tx);
+    }
+
     /* -- Chart ------------------------------------------------------------------- */
     .chwrap {
       position: relative;
@@ -1485,6 +1523,233 @@
       background: rgba(0, 212, 255, .08);
     }
 
+    .mode-btn.is-custom {
+      border-color: var(--p);
+      color: var(--p);
+      background: rgba(167, 139, 250, .08);
+    }
+
+    /* -- Custom UI modal --------------------------------------------------------- */
+    .cui-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 240;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(10, 14, 26, .78);
+      backdrop-filter: blur(5px);
+      animation: tIn .2s ease;
+    }
+
+    .cui-modal {
+      width: 100%;
+      max-width: 560px;
+      max-height: min(88vh, 760px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--s1);
+      border: 1px solid var(--bd);
+      border-radius: 18px;
+      box-shadow: 0 28px 70px rgba(0, 0, 0, .6);
+    }
+
+    .cui-hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 20px 16px;
+      border-bottom: 1px solid var(--bd);
+    }
+
+    .cui-title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .cui-title {
+      font-family: var(--mono);
+      font-size: 15px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--ac);
+    }
+
+    .cui-sub {
+      font-size: 12px;
+      color: var(--td);
+      line-height: 1.45;
+    }
+
+    .cui-close {
+      border: none;
+      background: none;
+      color: var(--td);
+      font-size: 24px;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 8px;
+      transition: color .15s, background .15s;
+    }
+
+    .cui-close:hover {
+      color: var(--tx);
+      background: rgba(255, 255, 255, .04);
+    }
+
+    .cui-body {
+      padding: 14px 20px 18px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .cui-note {
+      font-size: 12px;
+      color: var(--td);
+      line-height: 1.55;
+      padding: 12px 14px;
+      border: 1px solid var(--bd);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .03);
+    }
+
+    .cui-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .cui-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      padding: 11px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, .05);
+    }
+
+    .cui-row:last-child {
+      border-bottom: none;
+    }
+
+    .cui-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .cui-label {
+      font-size: 13px;
+      color: var(--tx);
+      font-weight: 600;
+    }
+
+    .cui-help {
+      font-size: 11px;
+      color: var(--td);
+      line-height: 1.4;
+    }
+
+    .cui-picker {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid var(--bd);
+      border-radius: 10px;
+      background: var(--s2);
+      padding: 7px 10px;
+      flex-shrink: 0;
+    }
+
+    .cui-swatch {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, .22);
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12);
+      flex-shrink: 0;
+    }
+
+    .cui-hex {
+      width: 74px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--tx);
+      text-transform: uppercase;
+      text-align: right;
+    }
+
+    input[type="color"] {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: none;
+      background: none;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      flex-shrink: 0;
+    }
+
+    input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+
+    input[type="color"]::-webkit-color-swatch {
+      border: 1px solid rgba(255, 255, 255, .2);
+      border-radius: 6px;
+    }
+
+    input[type="color"]::-moz-color-swatch {
+      border: 1px solid rgba(255, 255, 255, .2);
+      border-radius: 6px;
+    }
+
+    .cui-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding-top: 8px;
+    }
+
+    .cui-footer-note {
+      font-size: 11px;
+      color: var(--tm);
+      text-align: right;
+    }
+
+    @media (max-width: 560px) {
+      .cui-row {
+        grid-template-columns: 1fr;
+      }
+
+      .cui-picker {
+        justify-content: space-between;
+      }
+
+      .cui-actions {
+        justify-content: stretch;
+      }
+
+      .cui-actions .btn,
+      .cui-actions .bp {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .cui-footer-note {
+        text-align: left;
+      }
+    }
+
     /* -- CGM Live Feed (Nightscout) ----------------------------------------------- */
     .cgm-badge {
       display: flex;
@@ -1725,7 +1990,73 @@
       simpleMode: false,           // collapse entry form to essential fields only
       theme: 'dark',               // 'dark' | 'light' | 'high-vis'
       glucoseUnit: 'mgdl',         // 'mgdl' | 'mmol'
+      customColors: {},            // optional CSS-variable overrides layered over the active theme
     };
+
+    const THEME_COLOR_PRESETS = {
+      dark: {
+        bg: '#0a0e1a',
+        s1: '#111827',
+        s2: '#1a2235',
+        bd: '#1e2d45',
+        ac: '#00d4ff',
+        r: '#ff6b6b',
+        g: '#4ade80',
+        y: '#fbbf24',
+        p: '#a78bfa',
+        o: '#fb923c',
+        tx: '#e2e8f0',
+        td: '#64748b',
+        tm: '#334155',
+      },
+      light: {
+        bg: '#f0f4f8',
+        s1: '#ffffff',
+        s2: '#e8edf3',
+        bd: '#c4cdd8',
+        ac: '#0077cc',
+        r: '#dc2626',
+        g: '#16a34a',
+        y: '#b45309',
+        p: '#7c3aed',
+        o: '#c2410c',
+        tx: '#0f172a',
+        td: '#475569',
+        tm: '#94a3b8',
+      },
+      'high-vis': {
+        bg: '#000000',
+        s1: '#0d0d0d',
+        s2: '#1a1a1a',
+        bd: '#ffffff',
+        ac: '#00ffff',
+        r: '#ff4444',
+        g: '#00ff66',
+        y: '#ffff00',
+        p: '#cc88ff',
+        o: '#ff8800',
+        tx: '#ffffff',
+        td: '#dddddd',
+        tm: '#aaaaaa',
+      },
+    };
+
+    const CUSTOM_UI_OPTIONS = [
+      { key: 'bg', label: 'App Background', help: 'Overall page background and atmosphere.' },
+      { key: 's1', label: 'Card Surface', help: 'Cards, panels, and modal surfaces.' },
+      { key: 's2', label: 'Input Surface', help: 'Inputs, toggles, and secondary controls.' },
+      { key: 'bd', label: 'Borders & Dividers', help: 'Outlines, separators, and table grid lines.' },
+      { key: 'ac', label: 'Accent', help: 'Primary highlight color, buttons, and active states.' },
+      { key: 'tx', label: 'Primary Text', help: 'Main body copy and headings.' },
+      { key: 'td', label: 'Secondary Text', help: 'Labels, hints, and muted captions.' },
+      { key: 'tm', label: 'Placeholder Text', help: 'Dim placeholder and low-emphasis text.' },
+      { key: 'r', label: 'Danger / Low', help: 'Errors, warnings, and low-BG states.' },
+      { key: 'g', label: 'Success / In Range', help: 'Positive status and in-range states.' },
+      { key: 'y', label: 'Caution / High', help: 'High-BG and caution markers.' },
+      { key: 'p', label: 'Purple Accent', help: 'Secondary accent for insulin and overlays.' },
+      { key: 'o', label: 'Orange Accent', help: 'Calibration and advanced modifier emphasis.' },
+    ];
+    const CUSTOM_UI_KEYS = CUSTOM_UI_OPTIONS.map(x => x.key);
 
     // Activity levels shown in the entry form.
     const ACTIVITY_LEVELS = [
@@ -3397,6 +3728,51 @@
       catch { return fallback; }
     }
 
+    function normalizeCustomColors(customColors) {
+      if (!customColors || typeof customColors !== 'object') return {};
+      const out = {};
+      CUSTOM_UI_KEYS.forEach(key => {
+        const value = customColors[key];
+        if (typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value)) out[key] = value.toLowerCase();
+      });
+      return out;
+    }
+
+    function effectiveCustomColors(theme, customColors) {
+      return {
+        ...(THEME_COLOR_PRESETS[theme] || THEME_COLOR_PRESETS.dark),
+        ...normalizeCustomColors(customColors),
+      };
+    }
+
+    function diffCustomColors(colors, theme) {
+      const base = THEME_COLOR_PRESETS[theme] || THEME_COLOR_PRESETS.dark;
+      const normalized = normalizeCustomColors(colors);
+      const out = {};
+      CUSTOM_UI_KEYS.forEach(key => {
+        if (normalized[key] && normalized[key] !== String(base[key] || '').toLowerCase()) out[key] = normalized[key];
+      });
+      return out;
+    }
+
+    function hexToRgb(hex) {
+      const value = String(hex || '').replace('#', '');
+      if (!/^[0-9a-fA-F]{6}$/.test(value)) return null;
+      return {
+        r: parseInt(value.slice(0, 2), 16),
+        g: parseInt(value.slice(2, 4), 16),
+        b: parseInt(value.slice(4, 6), 16),
+      };
+    }
+
+    function glowForAccent(hex, theme) {
+      const rgb = hexToRgb(hex);
+      if (!rgb) return null;
+      const spread = theme === 'high-vis' ? 24 : 20;
+      const alpha = theme === 'high-vis' ? 0.3 : 0.15;
+      return `0 0 ${spread}px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+    }
+
 
     // -------------------------------------------------------------------------------
     //  E.  UI COMPONENTS
@@ -3408,6 +3784,102 @@
     function Toast({ msg, type, onDone }) {
       useEffect(() => { const t = setTimeout(onDone, 2800); return () => clearTimeout(t); }, [onDone]);
       return <div className={`tst ${type}`}>{msg}</div>;
+    }
+
+    function CustomUIColorRow({ option, value, onChange }) {
+      const display = String(value || '').toUpperCase();
+      return (
+        <div className="cui-row">
+          <div className="cui-meta">
+            <div className="cui-label">{option.label}</div>
+            <div className="cui-help">{option.help}</div>
+          </div>
+          <div className="cui-picker">
+            <div className="cui-swatch" style={{ background: value }} />
+            <span className="cui-hex">{display}</span>
+            <input
+              type="color"
+              value={value}
+              onChange={e => onChange(option.key, e.target.value)}
+              title={`Choose ${option.label} color`}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    function CustomUiModal({ ui, setUi, onClose }) {
+      const [draftColors, setDraftColors] = useState(() => effectiveCustomColors(ui.theme || 'dark', ui.customColors));
+      const customCount = Object.keys(normalizeCustomColors(ui.customColors)).length;
+
+      useEffect(() => {
+        setDraftColors(effectiveCustomColors(ui.theme || 'dark', ui.customColors));
+      }, [ui.theme, ui.customColors]);
+
+      useEffect(() => {
+        const onKeyDown = e => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+      }, [onClose]);
+
+      const handleColorChange = (key, value) => {
+        setDraftColors(prev => ({ ...prev, [key]: value }));
+      };
+
+      const handleReset = () => {
+        setDraftColors({ ...(THEME_COLOR_PRESETS[ui.theme || 'dark'] || THEME_COLOR_PRESETS.dark) });
+      };
+
+      const handleApply = () => {
+        setUi(prev => ({
+          ...prev,
+          customColors: diffCustomColors(draftColors, prev.theme || 'dark'),
+        }));
+        onClose();
+      };
+
+      return (
+        <div className="cui-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+          <div className="cui-modal">
+            <div className="cui-hdr">
+              <div className="cui-title-wrap">
+                <div className="cui-title">Custom UI Colors</div>
+                <div className="cui-sub">
+                  Pick a color for each UI element. The current color is shown beside its selector.
+                </div>
+              </div>
+              <button className="cui-close" onClick={onClose} aria-label="Close Custom UI dialog">×</button>
+            </div>
+
+            <div className="cui-body">
+              <div className="cui-note">
+                Active theme: <strong style={{ color: 'var(--tx)' }}>{ui.theme || 'dark'}</strong>.
+                {' '}Customized colors override that theme until you reset them.
+                {customCount > 0 && <> <strong style={{ color: 'var(--p)' }}>{customCount}</strong> saved override{customCount === 1 ? '' : 's'} currently active.</>}
+              </div>
+
+              <div className="cui-list">
+                {CUSTOM_UI_OPTIONS.map(option => (
+                  <CustomUIColorRow
+                    key={option.key}
+                    option={option}
+                    value={draftColors[option.key] || '#000000'}
+                    onChange={handleColorChange}
+                  />
+                ))}
+              </div>
+
+              <div className="cui-actions">
+                <button className="btn bg_" onClick={handleReset}>Reset To Theme</button>
+                <button className="btn bp" onClick={handleApply}>Apply Colors</button>
+              </div>
+              <div className="cui-footer-note">
+                Tip: switch Dark / Light / Hi-Vis first, then fine-tune with Custom UI.
+              </div>
+            </div>
+          </div>
+        </div>
+      );
     }
 
     // -- E1. Modifier bar (single row in the modifier panel) -----------------------
@@ -4455,7 +4927,13 @@
       const mealState = reconstructMealState(testLogs, tProfile, tSim);
       const proj = simulateProjection(180, pk, sv, inp, tProfile, tSim, 2, mealState);
       const bounded = proj.pts.every(p => p.G >= 40 && p.G <= 500);
-      push('simulateProjection', proj.pts.length > 5 && bounded, `pts=${proj.pts.length}, end=${proj.pts.at(-1)?.G}`);
+      const outputCadenceHr = 6 * (5 / 60); // simulateProjection records every 6 x 5-min steps = 30 min
+      const expectedPts = Math.floor(2 / outputCadenceHr) + 1; // include t=0
+      const endPt = proj.pts.at(-1);
+      const cadenceOk = proj.pts.length === expectedPts
+        && proj.pts[0]?.t === 0
+        && Math.abs((endPt?.t ?? 0) - 2) < 1e-9;
+      push('simulateProjection', cadenceOk && bounded, `pts=${proj.pts.length}/${expectedPts}, end=${endPt?.G}, t_end=${endPt?.t}`);
 
       return results;
     }
@@ -5158,7 +5636,1171 @@
       return <div className="chwrap"><canvas ref={ref} /></div>;
     }
 
-    // -- E6. Log table -------------------------------------------------------------
+    // -- E5a. Chart 1 · Meal Carb Absorption Rate ----------------------------------
+    // Derives the carb-to-blood glucose contribution rate from logged meals using the
+    // same two-compartment gastric emptying model as simulateProjection. No new math.
+
+    function c5_mealTypeFactor(mealType, sim) {
+      const idx = safeNum(mealType, 0);
+      return [sim.meal_slow_fast, sim.meal_slow_mixed, sim.meal_slow_hfp][idx] ?? 1.0;
+    }
+
+    function c5_fiberFactor(fiberClass, sim) {
+      const idx = safeNum(fiberClass, 0);
+      return [sim.fiber_slow_low, sim.fiber_slow_med, sim.fiber_slow_high][idx] ?? 1.0;
+    }
+
+    function c5_buildMealParams(sim, meal) {
+      const carbs_g = safeNum(meal.carbs, 0);
+      const fat_g = safeNum(meal.fat_g, 0);
+      const protein_g = safeNum(meal.protein_g, 0);
+      const total = Math.max(1, carbs_g + fat_g + protein_g);
+
+      return {
+        k_ge_base: safeNum(sim.k_ge_base, 2.0) / 60,
+        k_ge_min: 0.01 / 60,
+        k_abs_c: safeNum(sim.k_carb_abs, 1.5) / 60,
+        lambda_FP: safeNum(sim.lambda_FP, 0.30) / 60,
+        c_g: 1.0,
+        f_fat: safeNum(sim.k_ge_fat_factor, 0.3),
+        f_prot: safeNum(sim.k_ge_prot_factor, 0.2),
+        a_f: safeNum(sim.fat_factor, 0.10),
+        a_p: safeNum(sim.prot_factor, 0.20),
+        fat_fraction: fat_g / total,
+        protein_fraction: protein_g / total,
+      };
+    }
+
+    function c5_buildMealFactors(sim, meal) {
+      const alcoholLevel = safeNum(meal.alcoholLevel, 0);
+      const depressantLevel = safeNum(meal.depressantLevel, 0);
+      const thcLevel = safeNum(meal.thcLevel, 0);
+
+      return {
+        meal_type_factor: c5_mealTypeFactor(meal.mealType, sim),
+        fiber_factor: c5_fiberFactor(meal.fiberClass, sim),
+        alcohol_gastric_factor: Math.max(0.05, 1 - safeNum(sim.alcohol_gastric_slow, 0.2) * alcoholLevel),
+        depressant_gastric_factor: Math.max(0.05, 1 - safeNum(sim.depress_gastric_slow, 0.15) * depressantLevel),
+        thc_gastric_factor: Math.max(0.05, 1 - safeNum(sim.thc_gastric_slow, 0.25) * thcLevel),
+      };
+    }
+
+    function c5_buildMealTimeline(logs, sim, startMs, endMs, dtMin = 5) {
+      const mealLogs = (logs || [])
+        .filter(l => {
+          const tMs = new Date(l.timestamp).getTime();
+          return isFinite(tMs)
+            && tMs <= endMs
+            && tMs >= startMs - 12 * 3600000
+            && (safeNum(l.carbs, 0) > 0 || safeNum(l.fat_g, 0) > 0 || safeNum(l.protein_g, 0) > 0);
+        })
+        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+        .map(meal => {
+          const carbs_g = safeNum(meal.carbs, 0);
+          const fat_g = safeNum(meal.fat_g, 0);
+          const protein_g = safeNum(meal.protein_g, 0);
+          return {
+            tMs: new Date(meal.timestamp).getTime(),
+            params: c5_buildMealParams(sim, meal),
+            factors: c5_buildMealFactors(sim, meal),
+            meal: { carbs_g, fat_g, protein_g },
+            inputPoint: {
+              x: new Date(meal.timestamp).getTime(),
+              y: carbs_g + fat_g + protein_g,
+              carbs_g,
+              fat_g,
+              protein_g,
+              total_g: carbs_g + fat_g + protein_g,
+            },
+            state: { D_g: 0, R_c: 0, F_P: 0 },
+            active: false,
+          };
+        });
+
+      if (!mealLogs.length) {
+        return {
+          totalRate: [],
+          carbRate: [],
+          fpRate: [],
+          D_g: [],
+          R_c: [],
+          inputPoints: [],
+        };
+      }
+
+      const firstMealMs = mealLogs[0].tMs;
+      const simStartMs = Math.min(startMs, firstMealMs);
+      const dtMs = dtMin * 60000;
+
+      const totalRate = [];
+      const carbRate = [];
+      const fpRate = [];
+      const D_g = [];
+      const R_c = [];
+      const inputPoints = mealLogs
+        .filter(model => model.tMs >= startMs && model.tMs <= endMs)
+        .map(model => model.inputPoint);
+
+      for (let tMs = simStartMs; tMs <= endMs; tMs += dtMs) {
+        for (const model of mealLogs) {
+          if (!model.active && model.tMs <= tMs) {
+            model.state = addMealToState({ D_g: 0, R_c: 0, F_P: 0 }, model.meal, model.params);
+            model.active = true;
+          }
+        }
+
+        let totalMealRate = 0;
+        let carbMealRate = 0;
+        let fpMealRate = 0;
+        let dgState = 0;
+        let rcState = 0;
+
+        for (const model of mealLogs) {
+          if (!model.active) continue;
+          const result = updateCarbModel(dtMin, model.state, model.params, model.factors);
+          model.state = result.state;
+          totalMealRate += result.totalMealRate;
+          carbMealRate += result.carbRate;
+          fpMealRate += result.fpRate;
+          dgState += result.state.D_g;
+          rcState += result.state.R_c;
+        }
+
+        if (tMs < startMs) continue;
+
+        totalRate.push({ x: tMs, y: totalMealRate });
+        carbRate.push({ x: tMs, y: carbMealRate });
+        fpRate.push({ x: tMs, y: fpMealRate });
+        D_g.push({ x: tMs, y: dgState });
+        R_c.push({ x: tMs, y: rcState });
+      }
+
+      return { totalRate, carbRate, fpRate, D_g, R_c, inputPoints };
+    }
+
+    function c1_buildMealSeries(logs, profile, sim) {
+      const now = Date.now();
+      const timeline = c5_buildMealTimeline(logs, sim, now - 4 * 3600000, now + 2 * 3600000, 5);
+      return timeline.totalRate.map(pt => ({ t: pt.x, value: pt.y }));
+    }
+
+    // -- E5_carb. Chart 5 · Carb Model (carb-model.js port) -----------------------
+
+    function updateCarbModel(dtMinutes, state, params, factors) {
+      const compositionFactorRaw = 1.0
+        - (params.f_fat * params.fat_fraction)
+        - (params.f_prot * params.protein_fraction);
+      const compositionFactor = Math.max(0.05, compositionFactorRaw);
+      let k_ge = params.k_ge_base * compositionFactor
+        * factors.meal_type_factor
+        * factors.fiber_factor
+        * factors.alcohol_gastric_factor
+        * factors.depressant_gastric_factor
+        * factors.thc_gastric_factor;
+      k_ge = Math.max(params.k_ge_min, k_ge);
+      const dD_g = -k_ge * state.D_g;
+      const dR_c = (k_ge * state.D_g) - (params.k_abs_c * state.R_c);
+      const dF_P = -params.lambda_FP * state.F_P;
+      const newD_g = Math.max(0, state.D_g + dD_g * dtMinutes);
+      const newR_c = Math.max(0, state.R_c + dR_c * dtMinutes);
+      const newF_P = Math.max(0, state.F_P + dF_P * dtMinutes);
+      const carbRate = params.c_g * params.k_abs_c * newR_c;
+      const fpRate = params.lambda_FP * newF_P;
+      return {
+        state: { D_g: newD_g, R_c: newR_c, F_P: newF_P },
+        carbRate, fpRate,
+        totalMealRate: carbRate + fpRate,
+        k_ge,
+      };
+    }
+
+    function addMealToState(state, meal, params) {
+      return {
+        D_g: state.D_g + meal.carbs_g,
+        R_c: state.R_c,
+        F_P: state.F_P + (params.a_f * meal.fat_g) + (params.a_p * meal.protein_g),
+      };
+    }
+
+    function Chart5CarbModelChart({ logs, sim }) {
+      const canvasRef = React.useRef(null);
+      const chartRef = React.useRef(null);
+      const timeline = useMemo(() => {
+        const now = Date.now();
+        return c5_buildMealTimeline(logs, sim, now - 8 * 3600000, now + 4 * 3600000, 5);
+      }, [logs, sim]);
+      const hasMealInputs = timeline.inputPoints.length > 0;
+
+      React.useEffect(() => {
+        if (!canvasRef.current || !hasMealInputs) return;
+
+        const nowMs = Date.now();
+        const nowPlugin = {
+          id: 'nowLine_c5',
+          afterDraw(chart) {
+            const x = chart.scales.x.getPixelForValue(nowMs);
+            if (!Number.isFinite(x)) return;
+            const ctx2 = chart.ctx;
+            const { top, bottom } = chart.chartArea;
+            ctx2.save();
+            ctx2.strokeStyle = 'rgba(255,200,0,0.7)';
+            ctx2.lineWidth = 1.5;
+            ctx2.setLineDash([4, 4]);
+            ctx2.beginPath(); ctx2.moveTo(x, top); ctx2.lineTo(x, bottom); ctx2.stroke();
+            ctx2.fillStyle = 'rgba(255,200,0,0.9)';
+            ctx2.font = '10px sans-serif';
+            ctx2.fillText('Now', x + 4, top + 14);
+            ctx2.restore();
+          },
+        };
+
+        // ── chart ──────────────────────────────────────────────────────────
+        if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
+        const ctx = canvasRef.current.getContext('2d');
+        chartRef.current = new Chart(ctx, {
+          type: 'line',
+          plugins: [nowPlugin],
+          data: {
+            datasets: [
+              {
+                type: 'scatter',
+                label: 'Logged Meal Inputs',
+                data: timeline.inputPoints,
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                borderColor: '#0f172a',
+                borderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                yAxisID: 'yComp',
+              },
+              {
+                label: 'Fused Meal Response',
+                data: timeline.totalRate,
+                borderColor: 'rgba(255,255,255,0.85)',
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0,
+                yAxisID: 'yRate',
+              },
+              {
+                label: 'Carb Rate',
+                data: timeline.carbRate,
+                borderColor: 'rgba(80,220,120,0.9)',
+                backgroundColor: 'rgba(80,220,120,0.10)',
+                borderWidth: 1.5,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0,
+                yAxisID: 'yRate',
+              },
+              {
+                label: 'Fat+Protein Rate',
+                data: timeline.fpRate,
+                borderColor: 'rgba(250,180,60,0.9)',
+                backgroundColor: 'rgba(250,180,60,0.08)',
+                borderWidth: 1.5,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0,
+                yAxisID: 'yRate',
+              },
+              {
+                label: 'Stomach (D_g)',
+                data: timeline.D_g,
+                borderColor: 'rgba(80,160,255,0.8)',
+                borderWidth: 1.5,
+                borderDash: [5, 3],
+                fill: false,
+                tension: 0.3,
+                pointRadius: 0,
+                yAxisID: 'yComp',
+              },
+              {
+                label: 'Gut (R_c)',
+                data: timeline.R_c,
+                borderColor: 'rgba(200,100,255,0.8)',
+                borderWidth: 1.5,
+                borderDash: [5, 3],
+                fill: false,
+                tension: 0.3,
+                pointRadius: 0,
+                yAxisID: 'yComp',
+              },
+            ],
+          },
+          options: {
+            animation: false,
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: {
+                labels: { color: 'rgba(255,255,255,0.7)', font: { size: 11 } },
+              },
+              tooltip: {
+                callbacks: {
+                  title: items => new Date(items[0].parsed.x).toLocaleTimeString(),
+                  label: item => {
+                    if (item.dataset.label === 'Logged Meal Inputs') {
+                      const raw = item.raw || {};
+                      const parts = [];
+                      if (raw.carbs_g > 0) parts.push(`${raw.carbs_g}g carbs`);
+                      if (raw.fat_g > 0) parts.push(`${raw.fat_g}g fat`);
+                      if (raw.protein_g > 0) parts.push(`${raw.protein_g}g protein`);
+                      return `Logged meal: ${parts.join(' · ') || `${raw.total_g || 0}g total`}`;
+                    }
+                    const v = item.parsed.y.toFixed(2);
+                    return `${item.dataset.label}: ${v}`;
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                type: 'time',
+                time: { unit: 'hour', displayFormats: { hour: 'h:mm a' } },
+                ticks: { color: 'rgba(255,255,255,0.5)', maxTicksLimit: 8 },
+                grid: { color: 'rgba(255,255,255,0.06)' },
+              },
+              yRate: {
+                type: 'linear', position: 'left',
+                title: { display: true, text: 'Rate (mg/dL·min⁻¹)', color: 'rgba(255,255,255,0.5)', font: { size: 11 } },
+                ticks: { color: 'rgba(255,255,255,0.5)' },
+                grid: { color: 'rgba(255,255,255,0.06)' },
+                min: 0,
+              },
+              yComp: {
+                type: 'linear', position: 'right',
+                title: { display: true, text: 'Compartment (g)', color: 'rgba(255,255,255,0.5)', font: { size: 11 } },
+                ticks: { color: 'rgba(255,255,255,0.5)' },
+                grid: { drawOnChartArea: false },
+                min: 0,
+              },
+            },
+          },
+        });
+
+        return () => {
+          if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
+        };
+      }, [hasMealInputs, timeline]);
+
+      if (!hasMealInputs)
+        return <div className="es"><div className="ei">🍽️</div>Log meals to see input points and fused meal response</div>;
+
+      return (
+        <div style={{ position: 'relative', height: '340px' }}>
+          <canvas ref={canvasRef} />
+        </div>
+      );
+    }
+
+    // -- E5b. Chart 4 · Actual Glucose Measurements --------------------------------
+    // Pure fusion logic — no React, maps app logs to fused glucose series.
+
+    // Priority: fingerstick > cgm > bloodSugar (manual/unspecified)
+    function c4_buildFusedSeries(logs, minBG = 20, maxBG = 600) {
+      if (!Array.isArray(logs) || !logs.length) return [];
+
+      // Group by exact ISO timestamp string
+      const groups = new Map();
+      for (const log of logs) {
+        if (!log || !log.timestamp) continue;
+        const ts = log.timestamp;
+        if (!groups.has(ts)) groups.set(ts, []);
+        groups.get(ts).push(log);
+      }
+
+      const sorted = Array.from(groups.keys())
+        .sort((a, b) => new Date(a) - new Date(b));
+
+      const series = [];
+      for (const ts of sorted) {
+        let selected = null, type = 'manual';
+        for (const log of groups.get(ts)) {
+          const fs = Number(log.fingerstick);
+          const cgm = Number(log.cgm);
+          const bs = Number(log.bloodSugar);
+          if (selected === null && isFinite(fs) && fs >= minBG && fs <= maxBG) { selected = fs; type = 'fingerstick'; }
+          if (selected === null && isFinite(cgm) && cgm >= minBG && cgm <= maxBG) { selected = cgm; type = 'cgm'; }
+          if (selected === null && isFinite(bs) && bs >= minBG && bs <= maxBG) { selected = bs; type = 'manual'; }
+        }
+        if (selected !== null)
+          series.push({ t: new Date(ts).getTime(), glucose: selected, type, iso: ts });
+      }
+      return series;
+    }
+
+    // Extracts raw scatter points per measurement type for the chart overlay.
+    function c4_extractRaw(logs, minBG = 20, maxBG = 600) {
+      const cgm = [], fingerstick = [], manual = [];
+      for (const log of (logs || [])) {
+        if (!log || !log.timestamp) continue;
+        const x = new Date(log.timestamp).getTime();
+        if (!isFinite(x)) continue;
+        const fs = Number(log.fingerstick);
+        const cv = Number(log.cgm);
+        const bs = Number(log.bloodSugar);
+        const hasCgm = isFinite(cv) && cv >= minBG && cv <= maxBG;
+        const hasFs = isFinite(fs) && fs >= minBG && fs <= maxBG;
+        if (hasFs) fingerstick.push({ x, y: fs });
+        if (hasCgm) cgm.push({ x, y: cv });
+        // manual: bloodSugar logged without a CGM or fingerstick value
+        if (!hasCgm && !hasFs && isFinite(bs) && bs >= minBG && bs <= maxBG)
+          manual.push({ x, y: bs });
+      }
+      return { cgm, fingerstick, manual };
+    }
+
+    function Chart4ActualGlucoseChart({ logs, ui }) {
+      const ref = useRef(null);
+      const inst = useRef(null);
+      const { useState: _useState } = React;
+      const [showCgm, setShowCgm] = _useState(true);
+      const [showFingerstick, setShowFingerstick] = _useState(true);
+      const [showManual, setShowManual] = _useState(true);
+
+      const fused = c4_buildFusedSeries(logs);
+      const raw = c4_extractRaw(logs);
+
+      // Re-build chart when data changes
+      useEffect(() => {
+        if (!ref.current || !fused.length) return;
+
+        if (inst.current) { inst.current.destroy(); inst.current = null; }
+
+        inst.current = new Chart(ref.current.getContext('2d'), {
+          data: {
+            datasets: [
+              {
+                type: 'line',
+                label: 'Fused BG (priority order)',
+                data: fused.map(p => ({ x: p.t, y: p.glucose })),
+                borderColor: '#f59e0b', backgroundColor: 'transparent',
+                borderWidth: 2.5, pointRadius: 0, tension: 0.2, order: 1,
+                parsing: false,
+              },
+              {
+                type: 'scatter',
+                label: 'Fingerstick',
+                data: raw.fingerstick,
+                backgroundColor: '#ef4444', borderColor: '#fff',
+                borderWidth: 2, pointRadius: 7, pointHoverRadius: 9,
+                order: 2, parsing: false, hidden: !showFingerstick,
+              },
+              {
+                type: 'scatter',
+                label: 'CGM',
+                data: raw.cgm,
+                backgroundColor: '#3b82f6', borderColor: '#fff',
+                borderWidth: 1, pointRadius: 5, pointHoverRadius: 7,
+                order: 3, parsing: false, hidden: !showCgm,
+              },
+              {
+                type: 'scatter',
+                label: 'Manual',
+                data: raw.manual,
+                backgroundColor: '#22c55e', borderColor: '#fff',
+                borderWidth: 1, pointRadius: 5, pointHoverRadius: 7,
+                order: 4, parsing: false, hidden: !showManual,
+              },
+            ],
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            parsing: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: {
+                labels: {
+                  color: '#64748b', font: { family: 'Share Tech Mono', size: 10 }, boxWidth: 10,
+                },
+              },
+              tooltip: {
+                backgroundColor: '#111827', borderColor: '#1e2d45', borderWidth: 1,
+                titleColor: '#e2e8f0', bodyColor: '#94a3b8',
+                titleFont: { family: 'Share Tech Mono' },
+                callbacks: {
+                  label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} mg/dL`,
+                },
+              },
+            },
+            scales: {
+              x: {
+                type: 'time',
+                time: { unit: 'hour', displayFormats: { hour: 'HH:mm' }, tooltipFormat: 'yyyy-MM-dd HH:mm' },
+                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 }, maxRotation: 45 },
+                grid: { color: '#1e2d45' },
+              },
+              y: {
+                min: 40, max: 400,
+                title: { display: true, text: 'Glucose (mg/dL)', color: '#f59e0b', font: { size: 9 } },
+                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } },
+                grid: { color: '#1e2d45' },
+              },
+            },
+          },
+        });
+
+        return () => { if (inst.current) { inst.current.destroy(); inst.current = null; } };
+      }, [logs, ui]);
+
+      // Toggle visibility without rebuilding
+      useEffect(() => {
+        if (!inst.current) return;
+        // dataset order: 0=fused, 1=fingerstick, 2=cgm, 3=manual
+        inst.current.data.datasets[1].hidden = !showFingerstick;
+        inst.current.data.datasets[2].hidden = !showCgm;
+        inst.current.data.datasets[3].hidden = !showManual;
+        inst.current.update('none');
+      }, [showCgm, showFingerstick, showManual]);
+
+      const hasBg = fused.length > 0;
+      const stats = hasBg
+        ? `${fused.length} fused · ${raw.fingerstick.length} fingerstick · ${raw.cgm.length} CGM · ${raw.manual.length} manual`
+        : null;
+
+      return (<>
+        {!hasBg
+          ? <div className="es"><div className="ei">📋</div>Log readings to see glucose history</div>
+          : (<>
+            <div style={{ position: 'relative', height: '320px' }}>
+              <canvas ref={ref} />
+            </div>
+            <div className="row" style={{ marginTop: '10px', gap: '14px', flexWrap: 'wrap' }}>
+              {[
+                ['showFs', '🔴 Fingerstick', showFingerstick, setShowFingerstick],
+                ['showCgm', '🔵 CGM', showCgm, setShowCgm],
+                ['showMn', '🟢 Manual', showManual, setShowManual],
+              ].map(([id, lbl, val, set]) => (
+                <label key={id} style={{
+                  display: 'flex', alignItems: 'center', gap: '5px',
+                  fontSize: '11px', color: 'var(--td)', cursor: 'pointer'
+                }}>
+                  <input type="checkbox" checked={val} onChange={e => set(e.target.checked)}
+                    style={{ accentColor: 'var(--ac)' }} />
+                  {lbl}
+                </label>
+              ))}
+              <span style={{ fontSize: '11px', color: 'var(--td)', marginLeft: 'auto' }}>{stats}</span>
+            </div>
+          </>)
+        }
+      </>);
+    }
+
+    // -- E5c. Chart 3 · Modifier Suite --------------------------------------------
+    // Reconstructs k_abs_mult, seff_mult, hepaticOutputFactor, U_scalar at every
+    // historical log point using the app's own computeModifiers + computeStateVars.
+    // No new math — pure time-series reconstruction from real logged data.
+
+    // Builds a series compatible with Chart 5's c5_sampleSeries format:
+    // [{ t: ms, hepatic_factor, U_scalar }] — replaces the c5_gen3 stub.
+    function c3_buildModifierSeries(logs, profile, sim) {
+      const sorted = [...logs]
+        .filter(l => l.bloodSugar != null)
+        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      if (!sorted.length) return [];
+      return sorted.map((log, i) => {
+        const svAt = computeStateVars(sorted.slice(0, i + 1), profile, sim);
+        const tHr = new Date(log.timestamp).getHours() + new Date(log.timestamp).getMinutes() / 60;
+        const inpAt = {
+          bmi: profile.bmi, hr: log.hr || profile.HR_ref,
+          pa: log.pa || 0, sleep: log.sleep || 0, sleepQ: log.sleepQ ?? 4,
+          stress: log.stress || 0, illness: log.illness || 0,
+          hydration: log.hydration ?? 1, travelDay: log.travelDay || 0,
+          alcoholLevel: log.alcoholLevel || 0, stimulantLevel: log.stimulantLevel || 0,
+          depressantLevel: log.depressantLevel || 0, nicotineLevel: log.nicotineLevel || 0,
+          thcLevel: log.thcLevel || 0, dawnEffect: 0,
+          bg: log.bloodSugar, timeHour: tHr,
+          carbs: log.carbs || 0, fat_g: log.fat_g || 0,
+          protein_g: log.protein_g || 0, mealType: log.mealType || 0,
+          fiberClass: log.fiberClass || 0,
+        };
+        const mod = computeModifiers(inpAt, svAt, profile, sim);
+        return {
+          t: new Date(log.timestamp).getTime(),
+          hepatic_factor: mod.hepaticOutputFactor ?? 1,
+          U_scalar: mod.U_scalar ?? 1,
+        };
+      });
+    }
+
+    function Chart3ModifierChart({ logs, profile, sim, liveMod, ui }) {
+      const ref = useRef(null);
+      const inst = useRef(null);
+
+      useEffect(() => {
+        if (!ref.current) return;
+
+        const sorted = [...logs]
+          .filter(l => l.bloodSugar != null)
+          .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+          .slice(-40);
+
+        const labels = [], kAbsVals = [], sEffVals = [], hepaticVals = [], uVals = [];
+
+        sorted.forEach((log, i) => {
+          const svAt = computeStateVars(sorted.slice(0, i + 1), profile, sim);
+          const tHr = new Date(log.timestamp).getHours() + new Date(log.timestamp).getMinutes() / 60;
+          const inpAt = {
+            bmi: profile.bmi, hr: log.hr || profile.HR_ref,
+            pa: log.pa || 0, sleep: log.sleep || 0, sleepQ: log.sleepQ ?? 4,
+            stress: log.stress || 0, illness: log.illness || 0,
+            hydration: log.hydration ?? 1, travelDay: log.travelDay || 0,
+            alcoholLevel: log.alcoholLevel || 0, stimulantLevel: log.stimulantLevel || 0,
+            depressantLevel: log.depressantLevel || 0, nicotineLevel: log.nicotineLevel || 0,
+            thcLevel: log.thcLevel || 0, dawnEffect: 0,
+            bg: log.bloodSugar, timeHour: tHr,
+            carbs: log.carbs || 0, fat_g: log.fat_g || 0,
+            protein_g: log.protein_g || 0, mealType: log.mealType || 0,
+            fiberClass: log.fiberClass || 0,
+          };
+          const mod = computeModifiers(inpAt, svAt, profile, sim);
+          labels.push(fmtT(log.timestamp));
+          kAbsVals.push(+(mod.kabs_mult).toFixed(3));
+          sEffVals.push(+(mod.seff_mult).toFixed(3));
+          hepaticVals.push(+(mod.hepaticOutputFactor ?? 1).toFixed(3));
+          uVals.push(+(mod.U_scalar ?? 1).toFixed(3));
+        });
+
+        // Append current live point.
+        if (liveMod) {
+          labels.push('Now ★');
+          kAbsVals.push(+(liveMod.kabs_mult).toFixed(3));
+          sEffVals.push(+(liveMod.seff_mult).toFixed(3));
+          hepaticVals.push(+(liveMod.hepaticOutputFactor ?? 1).toFixed(3));
+          uVals.push(+(liveMod.U_scalar ?? 1).toFixed(3));
+        }
+
+        if (!labels.length) return;
+        if (inst.current) { inst.current.destroy(); inst.current = null; }
+
+        inst.current = new Chart(ref.current.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [
+              {
+                label: 'k_abs (absorption)', data: kAbsVals,
+                borderColor: '#38bdf8', backgroundColor: 'transparent',
+                borderWidth: 2, pointRadius: 3, tension: 0.3, yAxisID: 'yMod',
+              },
+              {
+                label: 'S_eff (sensitivity)', data: sEffVals,
+                borderColor: '#c084fc', backgroundColor: 'transparent',
+                borderWidth: 2, pointRadius: 3, tension: 0.3, yAxisID: 'yMod',
+              },
+              {
+                label: 'Hepatic factor', data: hepaticVals,
+                borderColor: '#fbbf24', backgroundColor: 'transparent',
+                borderWidth: 2, pointRadius: 3, tension: 0.3, yAxisID: 'yMod',
+              },
+              {
+                label: 'U scalar (uncertainty)', data: uVals,
+                borderColor: '#fb7185', backgroundColor: 'transparent',
+                borderWidth: 2, pointRadius: 3, tension: 0.3, yAxisID: 'yU',
+              },
+            ],
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: {
+                labels: {
+                  color: '#64748b', font: { family: 'Share Tech Mono', size: 10 },
+                  boxWidth: 10, usePointStyle: true,
+                },
+              },
+              tooltip: {
+                backgroundColor: '#111827', borderColor: '#1e2d45', borderWidth: 1,
+                titleColor: '#e2e8f0', bodyColor: '#94a3b8',
+                titleFont: { family: 'Share Tech Mono' },
+                callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(3)}` },
+              },
+            },
+            scales: {
+              x: {
+                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 }, maxRotation: 45 },
+                grid: { color: '#1e2d45' },
+              },
+              yMod: {
+                type: 'linear', position: 'left', min: 0, max: 2,
+                title: { display: true, text: '× baseline', color: '#64748b', font: { size: 9 } },
+                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } },
+                grid: { color: '#1e2d45' },
+              },
+              yU: {
+                type: 'linear', position: 'right',
+                title: { display: true, text: 'U scalar', color: '#fb7185', font: { size: 9 } },
+                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } },
+                grid: { drawOnChartArea: false },
+              },
+            },
+          },
+        });
+
+        return () => { if (inst.current) { inst.current.destroy(); inst.current = null; } };
+      }, [logs, profile, sim, liveMod]);
+
+      if (!logs.filter(l => l.bloodSugar != null).length)
+        return <div className="es"><div className="ei">🔧</div>Log readings to see modifier history</div>;
+      return <div className="chwrap" style={{ height: '300px' }}><canvas ref={ref} /></div>;
+    }
+
+    // -- E5d. Chart 2 · Insulin Effect on Blood Glucose ----------------------------
+    // Uses the app's existing projection (already computed via simulateProjection) plus
+    // the log history. No PK re-implementation — all math already runs upstream.
+
+    // Builds a series for Chart 5's ch2 slot: insulin lowering rate in mg/dL/min
+    // for the forward projection window. Values are negative (glucose goes down).
+    function c2_buildInsulinSeries(projection, profile, sim, liveMod) {
+      if (!Array.isArray(projection) || !projection.length) return [];
+      const kS = profile.corrFactor * kClearPerHour(sim); // mg/dL/U/hr
+      const seff_mult = liveMod?.seff_mult ?? 1;
+      const now = Date.now();
+      return projection
+        .filter(pt => pt.Qp != null)
+        .map(pt => ({
+          t: now + pt.t * 3_600_000,                               // absolute ms
+          value: -(kS * seff_mult * pt.Qp) / 60,                  // mg/dL/min, negative
+        }));
+    }
+
+    function Chart2InsulinEffectChart({ logs, projection, pkState, profile, sim, liveMod, ui }) {
+      const ref = useRef(null);
+      const inst = useRef(null);
+
+      useEffect(() => {
+        if (!ref.current) return;
+
+        const hist = [...logs]
+          .filter(l => l.bloodSugar != null)
+          .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+          .slice(-30);
+
+        const now = new Date();
+        const histLabels = hist.map(l => fmtT(l.timestamp));
+        const projLabels = projection.map(pt => {
+          const d = new Date(now.getTime() + pt.t * 3_600_000);
+          return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        });
+        const allLabels = [...histLabels, 'Now', ...projLabels.slice(1)];
+
+        const histBG = hist.map(l => l.bloodSugar);
+        const projBG = projection.map(p => p.G);
+        const bridgePad = hist.length > 0
+          ? [...new Array(hist.length - 1).fill(null), hist.at(-1)?.bloodSugar ?? null]
+          : [];
+        const nullPad = new Array(hist.length).fill(null);
+
+        // Glucose lowering rate at each projection point: -(kS × seff_mult × Qp) / 60
+        const kS = profile.corrFactor * kClearPerHour(sim);
+        const seff_mult = liveMod?.seff_mult ?? 1;
+        const projRate = projection.map(pt =>
+          pt.Qp != null ? -(kS * seff_mult * pt.Qp) / 60 : null
+        );
+
+        // IOB trend line: Qp over projection horizon
+        const projQp = projection.map(pt => pt.Qp ?? null);
+
+        if (inst.current) { inst.current.destroy(); inst.current = null; }
+
+        inst.current = new Chart(ref.current.getContext('2d'), {
+          data: {
+            labels: allLabels,
+            datasets: [
+              // BG history
+              {
+                type: 'line', label: 'BG history',
+                data: [...histBG, ...new Array(projection.length).fill(null)],
+                borderColor: '#e2e8f0', backgroundColor: 'rgba(226,232,240,.04)',
+                borderWidth: 2, pointRadius: 3, tension: 0.35, fill: true, yAxisID: 'yBG',
+                pointBackgroundColor: hist.map(l => bgColor(l.bloodSugar)),
+                pointBorderColor: '#0a0e1a', pointBorderWidth: 1,
+              },
+              // Projected BG
+              {
+                type: 'line', label: 'Projected BG',
+                data: [...bridgePad, ...projBG],
+                borderColor: 'rgba(226,232,240,.45)', backgroundColor: 'transparent',
+                borderWidth: 1.5, borderDash: [5, 4], pointRadius: 0,
+                tension: 0.3, fill: false, yAxisID: 'yBG',
+              },
+              // Historical insulin doses
+              {
+                type: 'bar', label: 'Dose (u)',
+                data: [...hist.map(l => l.insulinDose || null), ...new Array(projection.length).fill(null)],
+                backgroundColor: 'rgba(167,139,250,.45)', borderColor: '#a78bfa',
+                borderWidth: 1, yAxisID: 'yIns',
+              },
+              // Active plasma insulin (Qp) over projection
+              {
+                type: 'line', label: 'Active plasma insulin (u)',
+                data: [...nullPad, ...projQp],
+                borderColor: '#a78bfa', backgroundColor: 'transparent',
+                borderWidth: 1.5, borderDash: [3, 3], pointRadius: 0,
+                tension: 0.4, fill: false, yAxisID: 'yIns',
+              },
+              // Glucose lowering rate
+              {
+                type: 'line', label: 'Lowering rate (mg/dL/min)',
+                data: [...nullPad, ...projRate],
+                borderColor: '#14b8a6', backgroundColor: 'rgba(20,184,166,.12)',
+                borderWidth: 2, fill: true, pointRadius: 0,
+                tension: 0.4, yAxisID: 'yRate',
+              },
+            ],
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: {
+                labels: {
+                  color: '#64748b', font: { family: 'Share Tech Mono', size: 10 }, boxWidth: 10,
+                },
+              },
+              tooltip: {
+                backgroundColor: '#111827', borderColor: '#1e2d45', borderWidth: 1,
+                titleColor: '#e2e8f0', bodyColor: '#94a3b8',
+                titleFont: { family: 'Share Tech Mono' },
+                callbacks: {
+                  label: ctx => {
+                    const v = ctx.parsed.y;
+                    if (v == null) return null;
+                    return ` ${ctx.dataset.label}: ${typeof v === 'number' ? v.toFixed(2) : v}`;
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 }, maxRotation: 45 },
+                grid: { color: '#1e2d45' },
+              },
+              yBG: {
+                type: 'linear', position: 'left',
+                title: { display: true, text: bgUnitLabel(ui), color: '#e2e8f0', font: { size: 9 } },
+                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } },
+                grid: { color: '#1e2d45' },
+              },
+              yIns: {
+                type: 'linear', position: 'right',
+                title: { display: true, text: 'Insulin (u)', color: '#a78bfa', font: { size: 9 } },
+                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } },
+                grid: { drawOnChartArea: false },
+                min: 0,
+              },
+              yRate: {
+                type: 'linear', position: 'right',
+                title: { display: true, text: 'Rate (mg/dL/min)', color: '#14b8a6', font: { size: 9 } },
+                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } },
+                grid: { drawOnChartArea: false },
+                suggestedMin: -3, suggestedMax: 0.1,
+              },
+            },
+          },
+        });
+
+        return () => { if (inst.current) { inst.current.destroy(); inst.current = null; } };
+      }, [logs, projection, pkState, profile, sim, liveMod, ui]);
+
+      if (!logs.filter(l => l.bloodSugar != null).length)
+        return <div className="es"><div className="ei">💉</div>Log a dose to see insulin effect</div>;
+      return <div className="chwrap" style={{ height: '300px' }}><canvas ref={ref} /></div>;
+    }
+
+    // -- E6. Chart 5 · Master Aggregator ------------------------------------------
+    // Pure utility functions — no React, no physiology, only data fusion.
+
+    function c5_sampleSeries(series, t, key = 'value', def = 0) {
+      if (!Array.isArray(series) || !series.length) return def;
+      let last = def;
+      for (const pt of series) {
+        const ts = Number(pt.t);
+        if (!isFinite(ts)) continue;
+        if (ts > t) break;
+        if (pt[key] != null && isFinite(pt[key])) last = Number(pt[key]);
+      }
+      return last;
+    }
+
+    function c5_sampleObserved(series, t, tolMs = 60000) {
+      if (!Array.isArray(series)) return null;
+      for (const pt of series) {
+        const ts = Number(pt.t);
+        if (!isFinite(ts)) continue;
+        if (Math.abs(ts - t) <= tolMs && pt.glucose != null && isFinite(pt.glucose))
+          return Number(pt.glucose);
+      }
+      return null;
+    }
+
+    function c5_initialGlucose(series, startTime) {
+      if (!Array.isArray(series) || !series.length) return null;
+      let best = null;
+      for (const pt of series) {
+        const ts = Number(pt.t);
+        if (!isFinite(ts)) continue;
+        if (ts <= startTime && pt.glucose != null && isFinite(pt.glucose)) best = Number(pt.glucose);
+      }
+      if (best !== null) return best;
+      for (const pt of series) {
+        if (pt.glucose != null && isFinite(pt.glucose)) return Number(pt.glucose);
+      }
+      return null;
+    }
+
+    function c5_aggregate({ startTime, endTime, dtMinutes, ch1, ch2, ch3, ch4, cfg = {} }) {
+      const G_prod_base = cfg.G_prod_base ?? 0.12;
+      const k_basal = cfg.k_basal ?? 0.003;
+      const targetBG = cfg.targetBG ?? 100;
+      const u_base = cfg.u_base ?? 18;
+      const clampMin = cfg.clampMin ?? 40;
+      const clampMax = cfg.clampMax ?? 400;
+      const actualTolMs = cfg.actualTolMs ?? 60000;
+
+      let G = c5_initialGlucose(ch4, startTime);
+      if (G === null) return { error: 'No Chart 4 glucose at or before startTime.' };
+
+      const combined = [], bands = [];
+      const dtMs = dtMinutes * 60000;
+
+      for (let t = startTime; t <= endTime + 1; t += dtMs) {
+        const mealRate = c5_sampleSeries(ch1, t, 'value', 0);
+        const insulinRate = c5_sampleSeries(ch2, t, 'value', 0);
+        const hepaticFac = c5_sampleSeries(ch3, t, 'hepatic_factor', 1.0);
+        const UScalar = c5_sampleSeries(ch3, t, 'U_scalar', 1.0);
+
+        const hepaticRate = G_prod_base * hepaticFac;
+        const basalPull = k_basal * (G - targetBG);
+        const netRate = mealRate + hepaticRate + insulinRate - basalPull;
+
+        G = Math.min(clampMax, Math.max(clampMin, G + netRate * dtMinutes));
+
+        const observed = c5_sampleObserved(ch4, t, actualTolMs);
+        if (observed !== null) G = observed;
+
+        const horizHr = Math.max((t - startTime) / 3600000, 0.001);
+        const halfW = u_base * UScalar * Math.sqrt(horizHr);
+
+        combined.push({ t, glucose: G, mealRate, insulinRate, netRate, observedGlucose: observed });
+        bands.push({ t, lower: G - halfW, upper: G + halfW });
+      }
+      return { combined, bands, actualSeries: ch4 };
+    }
+
+    // Stub generators — replaced by real chart data once Charts 2-4 are built.
+    function c5_gen1(start, end, stepMin = 1) {
+      const s = [], ms = stepMin * 60000, meal = start + 15 * 60000;
+      for (let t = start; t <= end; t += ms) {
+        const hr = (t - meal) / 3600000;
+        s.push({ t, value: hr >= 0 && hr < 4 ? Math.max(0, 2.2 * hr * Math.exp(-hr * 1.2)) : 0 });
+      }
+      return s;
+    }
+    function c5_gen2(start, end, stepMin = 1) {
+      const s = [], ms = stepMin * 60000, bolus = start + 20 * 60000;
+      for (let t = start; t <= end; t += ms) {
+        const hr = (t - bolus) / 3600000;
+        s.push({ t, value: hr >= 0 && hr < 5 ? Math.min(0, -1.4 * hr * Math.exp(-hr * 1.3)) : 0 });
+      }
+      return s;
+    }
+    function c5_gen3(start, end, stepMin = 1) {
+      const s = [], ms = stepMin * 60000, ex = start + 3.2 * 3600000;
+      for (let t = start; t <= end; t += ms) {
+        const hr = (t - ex) / 3600000;
+        const active = hr >= 0 && hr < 2;
+        s.push({
+          t,
+          hepatic_factor: active ? 1 + 0.15 * Math.exp(-hr * 2) : 1.0,
+          U_scalar: active ? 1 + 0.5 * Math.exp(-hr * 1.5) : 1.0,
+        });
+      }
+      return s;
+    }
+    function c5_gen4(start, end, stepMin = 5) {
+      const ms = stepMin * 60000;
+      const trueG = t => {
+        const hr = (t - start) / 3600000;
+        return Math.max(70, Math.min(250,
+          120 + 8 * hr * Math.exp(-hr * 0.7)
+          - 2.5 * Math.max(0, hr - 0.5) * Math.exp(-(hr - 0.5) * 0.8)
+          + 5 * Math.sin(hr * 0.5)));
+      };
+      const s = [];
+      for (let t = start; t <= end; t += ms)
+        s.push({ t, glucose: Math.round(trueG(t) + Math.random() * 6 - 3), type: 'cgm' });
+      [0, 1.2, 2.5, 4.0].forEach(h => {
+        const t = start + h * 3600000;
+        if (t <= end) s.push({ t, glucose: Math.round(trueG(t)), type: 'fingerstick' });
+      });
+      return s.sort((a, b) => a.t - b.t);
+    }
+
+    function Chart5AggregatorChart({ logs, projection, ui, profile, sim, liveMod }) {
+      const ref = useRef(null);
+      const inst = useRef(null);
+
+      useEffect(() => {
+        if (!ref.current) return;
+
+        const now = Date.now();
+        const start = now - 4 * 3600000;
+        const end = now + 2 * 3600000;
+
+        // Use real Chart 1 meal absorption if meals exist; fall back to stub.
+        const realCh1 = c1_buildMealSeries(logs, profile, sim);
+        const ch1 = realCh1.length > 0 ? realCh1 : c5_gen1(start, end, 1);
+        // Use real Chart 2 insulin-effect series for forward window; fall back to stub.
+        const realCh2 = c2_buildInsulinSeries(projection, profile, sim, liveMod);
+        const ch2 = realCh2.length > 0 ? realCh2 : c5_gen2(start, end, 1);
+        // Use real Chart 3 modifier series if logs are available; fall back to stub.
+        const realCh3 = c3_buildModifierSeries(logs, profile, sim);
+        const ch3 = realCh3.length > 0 ? realCh3 : c5_gen3(start, end, 1);
+        // Use real Chart 4 fusion if logs are available; fall back to stub otherwise.
+        const realCh4 = c4_buildFusedSeries(logs);
+        const ch4 = realCh4.length > 0 ? realCh4 : c5_gen4(start, end, 5);
+
+        if (!ch1.length || !ch2.length || !ch3.length || !ch4.length) return;
+
+        // Pull live values from profile/sim so the aggregator matches app settings.
+        // sim.k_basal is hr⁻¹; c5_aggregate Euler step is in minutes, so convert.
+        const targetBG = profile?.targetBG ?? 100;
+        const k_basal = (sim?.k_basal ?? 0.008) / 60;   // hr⁻¹ → min⁻¹
+        const u_base = sim?.u_base ?? 18;
+        const clampMin = profile?.lowBG ?? 40;
+
+        const result = c5_aggregate({
+          startTime: start, endTime: end, dtMinutes: 5,
+          ch1, ch2, ch3, ch4,
+          cfg: {
+            G_prod_base: 0.12, k_basal, targetBG,
+            u_base, clampMin, clampMax: 400, actualTolMs: 60000
+          },
+        });
+        if (result.error) { console.error('Chart5:', result.error); return; }
+
+        const fmtT = ms => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const labels = result.combined.map(p => fmtT(p.t));
+
+        if (inst.current) { inst.current.destroy(); inst.current = null; }
+
+        inst.current = new Chart(ref.current.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [
+              // CGM dots (Chart 4)
+              {
+                label: 'CGM (Ch4)',
+                data: result.actualSeries.filter(p => p.type === 'cgm').map(p => ({
+                  x: fmtT(p.t), y: p.glucose
+                })),
+                type: 'scatter', backgroundColor: '#475569', pointRadius: 3,
+                order: 2, yAxisID: 'yBG',
+              },
+              // Fingerstick dots (Chart 4)
+              {
+                label: 'Fingerstick (Ch4)',
+                data: result.actualSeries.filter(p => p.type === 'fingerstick').map(p => ({
+                  x: fmtT(p.t), y: p.glucose
+                })),
+                type: 'scatter', backgroundColor: '#ef4444', borderColor: '#fff',
+                borderWidth: 2, pointRadius: 6, order: 1, yAxisID: 'yBG',
+              },
+              // Uncertainty band — upper fills down to lower
+              {
+                label: 'Band upper',
+                data: result.bands.map(b => b.upper),
+                borderColor: 'transparent', backgroundColor: 'rgba(0,212,255,0.10)',
+                pointRadius: 0, fill: '+1', order: 4, yAxisID: 'yBG',
+              },
+              {
+                label: 'Band lower',
+                data: result.bands.map(b => b.lower),
+                borderColor: 'transparent', backgroundColor: 'transparent',
+                pointRadius: 0, fill: false, order: 5, yAxisID: 'yBG',
+              },
+              // Fused modeled BG
+              {
+                label: 'Fused BG (Ch5)',
+                data: result.combined.map(p => p.glucose),
+                borderColor: '#00d4ff', borderWidth: 2.5, pointRadius: 0,
+                tension: 0.25, order: 3, yAxisID: 'yBG',
+              },
+              // Meal rate (Chart 1) — secondary axis
+              {
+                label: 'Meal rate (Ch1)',
+                data: result.combined.map(p => p.mealRate),
+                borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.08)',
+                borderWidth: 1.5, fill: true, pointRadius: 0,
+                tension: 0.25, order: 6, yAxisID: 'yRate',
+              },
+              // Insulin rate (Chart 2) — secondary axis
+              {
+                label: 'Insulin rate (Ch2)',
+                data: result.combined.map(p => p.insulinRate),
+                borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.08)',
+                borderWidth: 1.5, fill: true, pointRadius: 0,
+                tension: 0.25, order: 7, yAxisID: 'yRate',
+              },
+            ],
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: {
+                labels: {
+                  color: '#64748b', font: { family: 'Share Tech Mono', size: 10 }, boxWidth: 10,
+                  filter: item => !item.text.includes('Band'),
+                },
+              },
+              tooltip: {
+                backgroundColor: '#111827', borderColor: '#1e2d45', borderWidth: 1,
+                titleColor: '#e2e8f0', bodyColor: '#94a3b8',
+                titleFont: { family: 'Share Tech Mono' },
+                filter: item => !item.dataset.label.includes('Band'),
+              },
+            },
+            scales: {
+              x: {
+                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 }, maxRotation: 45 },
+                grid: { color: '#1e2d45' },
+              },
+              yBG: {
+                type: 'linear', position: 'left', min: 40, max: 350,
+                title: { display: true, text: 'Glucose (mg/dL)', color: '#00d4ff', font: { size: 9 } },
+                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } },
+                grid: { color: '#1e2d45' },
+              },
+              yRate: {
+                type: 'linear', position: 'right', min: -2, max: 2.5,
+                title: { display: true, text: 'Rate (mg/dL/min)', color: '#64748b', font: { size: 9 } },
+                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } },
+                grid: { drawOnChartArea: false },
+              },
+            },
+          },
+        });
+
+        return () => { if (inst.current) { inst.current.destroy(); inst.current = null; } };
+      }, [logs, projection, profile, sim, liveMod]);
+
+      return (
+        <div style={{ position: 'relative', height: '380px' }}>
+          <canvas ref={ref} />
+        </div>
+      );
+    }
+
+    // -- E7. Log table -------------------------------------------------------------
     function LogTable({ logs, profile, onDelete, ui }) {
       if (!logs.length)
         return <div className="es"><div className="ei">📋</div>No entries yet</div>;
@@ -5243,6 +6885,8 @@
 
       // -- UI state -----------------------------------------------------------------
       const [tab, setTab] = useState('log');
+      const [chartTab, setChartTab] = useState('bg');
+      const [showCustomUi, setShowCustomUi] = useState(false);
       const [toast, setToast] = useState(null);
       // CGM runtime state (not persisted)
       const [cgmStatus, setCgmStatus] = useState('idle'); // idle|polling|live|stale|error
@@ -5294,6 +6938,16 @@
       useEffect(() => {
         document.documentElement.setAttribute('data-theme', ui.theme || 'dark');
       }, [ui.theme]);
+      useEffect(() => {
+        const root = document.documentElement;
+        const customColors = normalizeCustomColors(ui.customColors);
+        CUSTOM_UI_KEYS.forEach(key => {
+          if (customColors[key]) root.style.setProperty(`--${key}`, customColors[key]);
+          else root.style.removeProperty(`--${key}`);
+        });
+        if (customColors.ac) root.style.setProperty('--glow', glowForAccent(customColors.ac, ui.theme || 'dark'));
+        else root.style.removeProperty('--glow');
+      }, [ui.customColors, ui.theme]);
       useEffect(() => { localStorage.setItem(STORE_LOGS, JSON.stringify(logs)); }, [logs]);
       useEffect(() => { localStorage.setItem(STORE_CGM, JSON.stringify(cgmCfg)); }, [cgmCfg]);
 
@@ -5492,6 +7146,7 @@
 
       const projEnd = projection.at(-1);
       const projBgEnd = projEnd?.G;
+      const customUiCount = Object.keys(normalizeCustomColors(ui.customColors)).length;
 
       // -- Render --------------------------------------------------------------------
       return (
@@ -5553,6 +7208,13 @@
               >
                 {ui.simpleMode ? '⚙ Advanced' : '◻ Simple'}
               </button>
+              <button
+                className={`mode-btn${customUiCount ? ' is-custom' : ''}`}
+                onClick={() => setShowCustomUi(true)}
+                title="Open Custom UI color dialog"
+              >
+                🎨 Custom UI{customUiCount ? ` (${customUiCount})` : ''}
+              </button>
               <button className="btn bg_ bsm"
                 onClick={() => { if (logs.length) dlCSV(logs); else showT('No data', 'err'); }}>
                 ⬇ Export CSV
@@ -5565,7 +7227,8 @@
             {[
               ['log', '📋 Log'],
               ['iob', '⏱ Active Insulin'],
-              ['history', '📊 Logs & Charts'],
+              ['charts', '📊 Charts'],
+              ['history', '📋 Logs'],
               ['calibration', '🎯 Calibration'],
               ...(ui.showAdvancedModifiers ? [['advanced', '🧪 Advanced']] : []),
               ['settings', '⚙️ Settings'],
@@ -5843,15 +7506,95 @@
             </div>
           </>)}
 
-          {/* ------ LOGS & CHARTS TAB ------------------------------------------------ */}
-          {tab === 'history' && (<>
-            <div className="card">
-              <div className="ct">📈 Blood Sugar, Insulin & Forecast</div>
-              <ProjectionChart logs={logs} projection={projection} ui={ui} />
-              <div className="note" style={{ marginTop: '8px' }}>
-                Dashed line = prediction based on your current insulin and activity. Orange = sensitivity %. Purple bars = doses.
-              </div>
+          {/* ------ CHARTS TAB ------------------------------------------------------- */}
+          {tab === 'charts' && (<>
+            <div className="chart-tabs">
+              {[
+                ['bg', '📈 BG & Forecast'],
+                ['c2', '💉 Insulin Effect'],
+                ['c3', '🔧 Modifiers'],
+                ['c4', '🩸 Actual BG'],
+                ['c5', '🍽️ Meal Model'],
+              ].map(([id, lbl]) => (
+                <button key={id} className={`chart-tab ${chartTab === id ? 'on' : ''}`}
+                  onClick={() => setChartTab(id)}>{lbl}</button>
+              ))}
             </div>
+
+            {chartTab === 'bg' && (
+              <div className="card">
+                <div className="ct">📈 BG & Forecast</div>
+                <Chart5AggregatorChart
+                  logs={logs} projection={projection} ui={ui}
+                  profile={profile} sim={sim} liveMod={liveMod} />
+                <div className="note" style={{ marginTop: '8px' }}>
+                  Fused BG trace anchored to real observations (Chart 4) with meal (green) and insulin (purple) contributions on secondary axis. Uncertainty band widens with horizon. Meal absorption and insulin rates derived from your logged entries.
+                </div>
+              </div>
+            )}
+
+            {chartTab === 'c2' && (
+              <div className="card">
+                <div className="ct">💉 Insulin Effect on Blood Glucose</div>
+                <Chart2InsulinEffectChart
+                  logs={logs} projection={projection} pkState={pkState}
+                  profile={profile} sim={sim} liveMod={liveMod} ui={ui} />
+                <div className="note" style={{ marginTop: '8px' }}>
+                  <span style={{ color: '#e2e8f0' }}>White</span> = BG history,
+                  <span style={{ color: 'rgba(226,232,240,.5)' }}> dashed</span> = projected BG,
+                  <span style={{ color: '#a78bfa' }}> purple bars</span> = logged doses,
+                  <span style={{ color: '#a78bfa' }}> dashed purple</span> = active plasma insulin (Qp),
+                  <span style={{ color: '#14b8a6' }}> teal</span> = glucose lowering rate (right axis).
+                </div>
+              </div>
+            )}
+
+            {chartTab === 'c3' && (
+              <div className="card">
+                <div className="ct">🔧 Modifier Suite</div>
+                <Chart3ModifierChart logs={logs} profile={profile} sim={sim} liveMod={liveMod} ui={ui} />
+                <div className="note" style={{ marginTop: '8px' }}>
+                  Historical modifier values reconstructed per log entry using your real profile &amp; sim settings.
+                  <span style={{ color: '#38bdf8' }}> Blue</span> = absorption,
+                  <span style={{ color: '#c084fc' }}> purple</span> = sensitivity,
+                  <span style={{ color: '#fbbf24' }}> amber</span> = hepatic factor,
+                  <span style={{ color: '#fb7185' }}> red</span> = uncertainty (right axis).
+                  ★ = current live values.
+                </div>
+              </div>
+            )}
+
+            {chartTab === 'c4' && (
+              <div className="card">
+                <div className="ct">🩸 Actual Glucose Measurements</div>
+                <Chart4ActualGlucoseChart logs={logs} ui={ui} />
+                <div className="note" style={{ marginTop: '8px' }}>
+                  Per-timestamp fusion: <span style={{ color: '#ef4444' }}>fingerstick</span> {'>'} <span style={{ color: '#3b82f6' }}>CGM</span> {'>'} <span style={{ color: '#22c55e' }}>manual</span>. Values outside 20–400 mg/dL are excluded.
+                </div>
+              </div>
+            )}
+
+            {chartTab === 'c5' && (
+              <div className="card">
+                <div className="ct">🍽️ Meal Absorption Model</div>
+                <Chart5CarbModelChart logs={logs} sim={sim} />
+                <div className="note" style={{ marginTop: '8px' }}>
+                  <span style={{ color: 'rgba(255,255,255,0.95)' }}>White dots</span> = logged meal inputs from your entries.
+                  <span style={{ color: 'rgba(255,255,255,0.85)' }}> White line/fill</span> = fused meal response.
+                  Two-compartment gastric model: stomach D<sub>g</sub> (
+                  <span style={{ color: '#50a0ff' }}>blue dashed</span>) → gut R<sub>c</sub> (
+                  <span style={{ color: '#c864ff' }}>purple dashed</span>) → blood.
+                  <span style={{ color: '#50dc78' }}> green</span> = carb rate,
+                  <span style={{ color: '#fab43c' }}> amber</span> = fat+protein rate (mg·dL⁻¹·min⁻¹).
+                  Gastric emptying is modulated by meal type, fiber class, alcohol, THC, and depressant levels from your logs.
+                </div>
+              </div>
+            )}
+
+          </>)}
+
+          {/* ------ LOGS TAB --------------------------------------------------------- */}
+          {tab === 'history' && (<>
             <div className="card">
               <div className="ct">📋 Full Log</div>
               <div className="row" style={{ marginBottom: '11px' }}>
@@ -5915,6 +7658,14 @@
               ui={ui} setUi={setUi}
               logs={logs} showT={showT}
               cgmCfg={cgmCfg} setCgmCfg={setCgmCfg}
+            />
+          )}
+
+          {showCustomUi && (
+            <CustomUiModal
+              ui={ui}
+              setUi={setUi}
+              onClose={() => setShowCustomUi(false)}
             />
           )}
 

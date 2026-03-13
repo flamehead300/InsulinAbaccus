@@ -1657,7 +1657,7 @@
       eta_q: 0.50,   // sleep quality amplifier (poor quality makes eta worse)
       // -- Age & sex baseline adjustments (3.1) ----------------------------------
       age_penalty: 0.07, // sensitivity lost per decade over age 30 (0–1 scale)
-      sex_factor_F: 0.95, // baseline sensitivity multiplier for female sex (< 1 = more sensitive)
+      sex_factor_F: 0.95, // female insulin-need multiplier (< 1 = slightly less insulin needed)
       // -- Travel / routine disruption (3.2) -------------------------------------
       travel_sens_penalty: 0.20, // fractional sensitivity reduction during travel/disruption
       travel_uncertainty: 0.30, // uncertainty band growth rate (mg/dL per hour of projection)
@@ -2050,10 +2050,10 @@
       }
 
       // Physically interpretable IOB credit.
-      // Re-expresses plasma in subq-equivalent units: if future sensitivity is lower
-      // than current, plasma insulin is worth proportionally more right now.
+      // Re-expresses plasma in subq-equivalent units, discounted when future
+      // sensitivity is expected to be lower than current sensitivity.
       static effectiveSubqIob(D, P, S_active, S_future) {
-        const plasmaSubqEquiv = P * (S_active / Math.max(0.01, S_future));
+        const plasmaSubqEquiv = P * (Math.max(0.01, S_future) / Math.max(0.01, S_active));
         return Math.max(0, D + plasmaSubqEquiv);
       }
 
@@ -2069,7 +2069,7 @@
     // Consumes pre-computed PD outputs; never touches raw PK values (D, P) directly.
     class CorrectionEngine {
       // Recommend a correction dose.
-      // expectedFutureISF: baseISF / S_future — computed by the orchestrator before calling here.
+      // expectedFutureISF: baseISF * S_future — computed by the orchestrator before calling here.
       // iobCredit: U from PDLayer.effectiveSubqIob or PDLayer.weightedIobCredit.
       static recommend(glucose, target, expectedFutureISF, iobCredit) {
         const rawCorrection = Math.max(0, (glucose - target) / Math.max(0.1, expectedFutureISF));
@@ -2246,7 +2246,7 @@
         const currentEffect = PDLayer.currentEffect(pkS.plasma, S_active);
         const effectiveSubqIob = PDLayer.effectiveSubqIob(pkS.depot, pkS.plasma, S_active, S_future);
         const weightedIobCredit = PDLayer.weightedIobCredit(pkS.depot, pkS.plasma, S_active, this.depotWeight, this.plasmaWeight);
-        const expectedFutureISF = this.baseISF / Math.max(0.1, S_future);
+        const expectedFutureISF = this.baseISF * Math.max(0.1, S_future);
         return {
           timestamp: this.lastUpdateTime,
           physical: pkS,
@@ -2681,9 +2681,10 @@
       // and intracellular lipid accumulation independent of BMI.
       const fAge = Math.max(0.1, 1 - sim.age_penalty * Math.max(0, profile.age - 30) / 10);
 
-      // Sex-based offset: females tend toward slightly higher peripheral sensitivity
-      // (sex_factor_F < 1 means more sensitive → requires less correction insulin).
-      const fSex = profile.sex === 'F' ? sim.sex_factor_F : 1.0;
+      // Sex-based offset: females tend toward slightly higher peripheral sensitivity.
+      // sex_factor_F is configured as insulin need (< 1 = less insulin needed), so
+      // sensitivity moves in the opposite direction.
+      const fSex = profile.sex === 'F' ? 1 / Math.max(0.01, sim.sex_factor_F) : 1.0;
 
       // Composite demographic baseline.
       const eta0 = profile.corrFactor * fBMI * fAge * fSex;
@@ -3024,11 +3025,12 @@
         ? Math.max(0, (Number(pkCorrRec.rawCorrection) || 0) - pkIobCredit)
         : corrDoseBase;
       const corrDose = Math.min(corrDoseBase, corrDoseSafe);
-      // Effective carb ratio scales inversely with all sensitivity factors (inc. age/sex via eta0).
+      // Effective carb ratio scales with sensitivity factors: more sensitive means
+      // more grams are covered per unit; more resistant means fewer grams per unit.
       const allDynamic = sm.fBMI * sm.fAge * sm.fSex *
         sm.fEx * sm.fDawn * sm.fLow * sm.fHigh * sm.fSlp * sm.fStress * sm.fIllness *
         sm.fTravel * sm.fAlcohol * sm.fStimulant * sm.fNicotine;
-      const effCR = profile.carbRatio / Math.max(0.05, allDynamic);
+      const effCR = profile.carbRatio * Math.max(0.05, allDynamic);
       const carbDose = carbs > 0 ? carbs / Math.max(0.5, effCR) : 0;
       const uncappedTotal = Math.max(0, corrDose + carbDose);
       const maxDose = Math.max(0.5, safeNum(profile.maxDose, 50));
@@ -4725,7 +4727,7 @@
               </div>
               {profile.sex === 'F' && (
                 <div className="note" style={{ marginTop: '4px' }}>
-                  Female baseline applies a sensitivity multiplier of {sim.sex_factor_F}×. Cyclical (luteal-phase) resistance modelling coming in a future update.
+                  Female baseline applies an insulin-need multiplier of {sim.sex_factor_F}×, which maps to a modest sensitivity increase. Cyclical (luteal-phase) resistance modelling coming in a future update.
                 </div>
               )}
             </div>
@@ -4804,11 +4806,11 @@
             <div className="sst" style={{ fontSize: '10px', marginTop: '6px' }}>Age &amp; Sex Baseline (3.1) — demographic sensitivity adjustment</div>
             <div className="sg">
               <SField label="age_penalty — sensitivity lost per decade &gt;30" k="age_penalty" s={sim} set={setSim} step="0.01" />
-              <SField label="sex_factor_F — female sensitivity multiplier" k="sex_factor_F" s={sim} set={setSim} step="0.01" />
+              <SField label="sex_factor_F — female insulin-need multiplier" k="sex_factor_F" s={sim} set={setSim} step="0.01" />
               <div style={{ gridColumn: '1/-1' }}>
                 <span className="note">
                   age_penalty of 0.07 ≈ 7% lost per decade after 30 (calibrated from glucose disposal rate studies).
-                  sex_factor_F of 0.95 means female patients require ~5% less correction insulin on average at baseline.
+                  sex_factor_F of 0.95 means female patients require about 5% less correction insulin on average at baseline, so the model converts it into a slightly higher baseline sensitivity.
                   Cyclical luteal-phase resistance is not yet modelled here.
                 </span>
               </div>
@@ -5380,7 +5382,7 @@
         effBgNum, timeHour, crbs, fat, protein, mealType, fiberClass]);
 
       const liveMod = useMemo(() => computeModifiers(inp, sv, profile, sim, { pkState, mealState }), [inp, sv, profile, sim, pkState, mealState]);
-      const bgZone = (effBgNum > 0 && effBgNum !== profile.targetBG) ? zone(effBgNum, profile) : null;
+      const bgZone = effBgNum > 0 ? zone(effBgNum, profile) : null;
 
       // -- PK model state (BloodGlucoseInsulinModel) -----------------------------
       // Rebuilt whenever logs, profile, sim, or the live modifier snapshot changes.

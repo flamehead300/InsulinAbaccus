@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>InsulinTrack � Insulin Action Model</title>
+  <title>InsulinTrack - Insulin Action Model</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -188,6 +188,7 @@
       .fg,
       .sg,
       .pag,
+      .pal2,
       .pal3,
       .pal4 {
         grid-template-columns: 1fr !important;
@@ -249,6 +250,12 @@
     .pal3 {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .pal2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
       gap: 6px;
     }
 
@@ -1559,6 +1566,34 @@
       animation: cgmPulse 2s ease-in-out infinite;
       flex-shrink: 0;
     }
+
+    /* ── Unit suffix inputs ──────────────────────────────────────────────────── */
+    .input-unit-wrap {
+      display: flex;
+      align-items: stretch;
+      gap: 6px;
+    }
+
+    .input-unit-wrap input,
+    .input-unit-wrap select {
+      flex: 1;
+    }
+
+    .input-unit-suffix {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 72px;
+      padding: 0 10px;
+      border: 1px solid var(--bd);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--td);
+      font-family: var(--mono);
+      font-size: 12px;
+      white-space: nowrap;
+      user-select: none;
+    }
   </style>
 </head>
 
@@ -1664,7 +1699,7 @@
       fiber_slow_med: 0.8, // fiber absorption multiplier — medium fiber
       fiber_slow_high: 0.6, // fiber absorption multiplier — high fiber
       // -- Uncertainty scoring (5.1) --------------------------------------------
-      // U(t) = (1 + Σ wᵢ�Sᵢ) � u_base � √t  — widens the confidence band
+      // U(t) = (1 + sum_i w_i*S_i) * u_base * sqrt(t)  — widens the confidence band
       u_base: 18,   // base ±mg/dL band width per √hour at U_scalar=1
       u_stress: 0.30, // stress (0–3, normalised to 0–1) contribution
       u_illness: 0.50, // illness toggle contribution
@@ -1685,10 +1720,11 @@
 
     // UI display preferences — things the user controls.
     const DEFAULT_UI_STATE = {
-      dualBg: false, // show separate CGM + fingerstick inputs
+      dualBg: false,               // show separate CGM + fingerstick inputs
       showAdvancedModifiers: false, // enable the Advanced Daily Modifiers tab (4.x features)
-      simpleMode: false, // collapse entry form to essential fields only (BG, Carbs, HR)
-      theme: 'dark',    // 'dark' | 'light' | 'high-vis'
+      simpleMode: false,           // collapse entry form to essential fields only
+      theme: 'dark',               // 'dark' | 'light' | 'high-vis'
+      glucoseUnit: 'mgdl',         // 'mgdl' | 'mmol'
     };
 
     // Activity levels shown in the entry form.
@@ -2008,7 +2044,7 @@
     // is enforced here.
     class PDLayer {
       // Current insulin effect: plasma concentration scaled by active sensitivity.
-      // Units: U�(sensitivity) — fed into GlucoseSimulator as the disposal driver.
+      // Units: U*(sensitivity) — fed into GlucoseSimulator as the disposal driver.
       static currentEffect(P, S_active) {
         return P * S_active;
       }
@@ -2354,10 +2390,54 @@
       return Number.isFinite(n) ? n : null;
     }
 
+    // ── Unit conversion layer ───────────────────────────────────────────────────
+    // All internal values (profile, logs, model) stay in mg/dL.
+    // Only the UI converts using these helpers.
+    const MGDL_PER_MMOL = 18;
+
+    function isMmol(ui) { return ui?.glucoseUnit === 'mmol'; }
+
+    function formatBgForDisplay(mgdl, ui, digits) {
+      if (mgdl == null || !Number.isFinite(Number(mgdl))) return '';
+      if (isMmol(ui)) return (Number(mgdl) / MGDL_PER_MMOL).toFixed(digits ?? 1);
+      return String(Math.round(Number(mgdl)));
+    }
+
+    function parseBgFromDisplay(raw, ui) {
+      if (raw == null || raw === '') return null;
+      const n = parseFloat(raw);
+      if (!Number.isFinite(n)) return null;
+      return isMmol(ui) ? Math.round(n * MGDL_PER_MMOL) : n;
+    }
+
+    function formatCorrFactorForDisplay(mgdlPerU, ui) {
+      if (mgdlPerU == null || !Number.isFinite(Number(mgdlPerU))) return '';
+      return isMmol(ui)
+        ? (Number(mgdlPerU) / MGDL_PER_MMOL).toFixed(1)
+        : String(Math.round(Number(mgdlPerU)));
+    }
+
+    function parseCorrFactorFromDisplay(raw, ui) {
+      if (raw == null || raw === '') return null;
+      const n = parseFloat(raw);
+      if (!Number.isFinite(n)) return null;
+      return isMmol(ui) ? n * MGDL_PER_MMOL : n;
+    }
+
+    function bgUnitLabel(ui) { return isMmol(ui) ? 'mmol/L' : 'mg/dL'; }
+    function corrUnitLabel(ui) { return isMmol(ui) ? 'mmol/L/u' : 'mg/dL/u'; }
+
+    function formatBgRange(loMgdl, hiMgdl, ui) {
+      if (isMmol(ui))
+        return `${(loMgdl / MGDL_PER_MMOL).toFixed(1)}–${(hiMgdl / MGDL_PER_MMOL).toFixed(1)} mmol/L`;
+      return `${loMgdl}–${hiMgdl} mg/dL`;
+    }
+
     // Centralized validation for entry BG/carb fields.
-    function validateEntryInputs({ bg, fs, crbs, dualBg }) {
-      const bgV = parseOptNum(bg);
-      const fsV = parseOptNum(fs);
+    // bg/fs are strings in the user's display unit; ui.glucoseUnit determines parsing.
+    function validateEntryInputs({ bg, fs, crbs, dualBg, ui }) {
+      const bgV = parseBgFromDisplay(bg, ui);
+      const fsV = parseBgFromDisplay(fs, ui);
       const carbV = parseOptNum(crbs);
 
       let bgErr = null;
@@ -2365,16 +2445,16 @@
       let carbErr = null;
 
       if (bgV != null && (bgV < BG_ENTRY_MIN || bgV > BG_ENTRY_MAX))
-        bgErr = `BG must be ${BG_ENTRY_MIN}-${BG_ENTRY_MAX} mg/dL.`;
+        bgErr = `BG must be ${formatBgRange(BG_ENTRY_MIN, BG_ENTRY_MAX, ui)}.`;
       if (dualBg && fsV != null && (fsV < BG_ENTRY_MIN || fsV > BG_ENTRY_MAX))
-        fsErr = `Fingerstick must be ${BG_ENTRY_MIN}-${BG_ENTRY_MAX} mg/dL.`;
+        fsErr = `Fingerstick must be ${formatBgRange(BG_ENTRY_MIN, BG_ENTRY_MAX, ui)}.`;
       if (carbV != null && (carbV < CARB_ENTRY_MIN || carbV > CARB_ENTRY_MAX))
-        carbErr = `Carbs must be ${CARB_ENTRY_MIN}-${CARB_ENTRY_MAX}g.`;
+        carbErr = `Carbs must be ${CARB_ENTRY_MIN}–${CARB_ENTRY_MAX}g.`;
 
       const effBg = dualBg && fsV != null ? fsV : bgV;
       let doseBlockReason = null;
       if (!bgErr && !fsErr && effBg != null && effBg > BG_DOSING_MAX)
-        doseBlockReason = `Dose calculation disabled above ${BG_DOSING_MAX} mg/dL.`;
+        doseBlockReason = `Dose calculation disabled above ${formatBgForDisplay(BG_DOSING_MAX, ui, isMmol(ui) ? 1 : 0)} ${bgUnitLabel(ui)}.`;
       if (!carbErr && carbV != null && carbV > CARB_ENTRY_MAX)
         doseBlockReason = `Dose calculation disabled above ${CARB_ENTRY_MAX}g carbs.`;
 
@@ -2587,8 +2667,8 @@
     // Dynamic factors then modulate η₀ up or down in real time.
     //
     // Model:
-    //   η₀ = corrFactor � fBMI � fAge � fSex
-    //   S_eff = η₀ � fBG � fEx � fDawn � fLow � fHigh � fSlp � fStress � fIllness � fTravel
+    //   η0 = corrFactor * fBMI * fAge * fSex
+    //   S_eff = η0 * fBG * fEx * fDawn * fLow * fHigh * fSlp * fStress * fIllness * fTravel
     function calcSeff(inp, sv, profile, sim) {
       const { bmi, bg, sleep, sleepQ, stress, illness, travelDay = 0 } = inp;
       const { E_ex, L, H } = sv;
@@ -2934,7 +3014,8 @@
       // Age and sex are now embedded in sm.eta0, so we use that as the base rather
       // than reconstructing from corrFactor alone.
       const seffDose = sm.eta0 *
-        sm.fEx * sm.fDawn * sm.fLow * sm.fHigh * sm.fSlp * sm.fStress * sm.fIllness;
+        sm.fEx * sm.fDawn * sm.fLow * sm.fHigh * sm.fSlp * sm.fStress * sm.fIllness *
+        sm.fTravel * sm.fAlcohol * sm.fStimulant * sm.fNicotine;
       const corrDoseBase = bg > profile.targetBG ? (bg - profile.targetBG) / Math.max(1, seffDose) : 0;
       const pkIobCredit = Math.max(0, Number(pkCorrRec?.iobCredit) || 0);
       const pkExpectedFutureISF = Number(pkCorrRec?.expectedFutureISF);
@@ -2945,7 +3026,8 @@
       const corrDose = Math.min(corrDoseBase, corrDoseSafe);
       // Effective carb ratio scales inversely with all sensitivity factors (inc. age/sex via eta0).
       const allDynamic = sm.fBMI * sm.fAge * sm.fSex *
-        sm.fEx * sm.fDawn * sm.fLow * sm.fHigh * sm.fSlp * sm.fStress * sm.fIllness;
+        sm.fEx * sm.fDawn * sm.fLow * sm.fHigh * sm.fSlp * sm.fStress * sm.fIllness *
+        sm.fTravel * sm.fAlcohol * sm.fStimulant * sm.fNicotine;
       const effCR = profile.carbRatio / Math.max(0.05, allDynamic);
       const carbDose = carbs > 0 ? carbs / Math.max(0.5, effCR) : 0;
       const uncappedTotal = Math.max(0, corrDose + carbDose);
@@ -3023,7 +3105,7 @@
         + sim.stim_hep_boost * stimulantLevel;            // 4.2 glycogenolysis boost
 
       // -- 5.1 Uncertainty scalar U — weighted sum of all active stressors -----
-      // U_scalar is time-invariant; the band width grows as U_scalar � u_base � √t
+      // U_scalar is time-invariant; the band width grows as U_scalar * u_base * sqrt(t)
       // so compounding errors widen exponentially with horizon, as they do clinically.
       const substanceSum = alcoholLevel + stimulantLevel + depressantLevel + nicotineLevel + thcLevel;
       const overlapScore = ((mealState.D_g ?? 0) > 5 ? 1 : 0)
@@ -3069,7 +3151,7 @@
         const ka = km.kabs;
 
         // Basal delivery adds a small continuous input to the subcutaneous pool.
-        const basalInput = profile.basalRate * DT;
+        const basalInput = profile.basalRate;
 
         // Insulin PK.
         const dQsc = -ka * Q_sc + basalInput;
@@ -3107,7 +3189,7 @@
         R_c = Math.max(0, R_c + dRc * DT);
 
         if (i % 6 === 0) {
-          // 5.1 Uncertainty band grows as U_scalar � u_base � √tElapsed.
+          // 5.1 Uncertainty band grows as U_scalar * u_base * sqrt(tElapsed).
           // A √t profile matches the diffusion-like compounding of prediction error
           // (biologically: each uncertain step adds variance, not a fixed offset).
           const tElapsed = i * DT;
@@ -3237,16 +3319,61 @@
       return [CSV_COLUMNS.join(','), ...rows].join('\n');
     }
 
+    // Parse CSV text safely, including quoted commas, escaped quotes, CRLF, and BOM.
+    function parseCSVRows(text) {
+      const rows = [];
+      let row = [];
+      let field = '';
+      let inQuotes = false;
+      const src = String(text || '').replace(/^\uFEFF/, '');
+
+      for (let i = 0; i < src.length; i++) {
+        const ch = src[i];
+        if (inQuotes) {
+          if (ch === '"') {
+            if (src[i + 1] === '"') {
+              field += '"';
+              i += 1;
+            } else {
+              inQuotes = false;
+            }
+          } else {
+            field += ch;
+          }
+          continue;
+        }
+
+        if (ch === '"') {
+          inQuotes = true;
+        } else if (ch === ',') {
+          row.push(field);
+          field = '';
+        } else if (ch === '\r') {
+          continue;
+        } else if (ch === '\n') {
+          row.push(field);
+          rows.push(row);
+          row = [];
+          field = '';
+        } else {
+          field += ch;
+        }
+      }
+
+      row.push(field);
+      if (row.length > 1 || row[0] !== '') rows.push(row);
+      return rows;
+    }
+
     // Parse CSV text back into normalised log entries.
     function fromCSV(text) {
-      const lines = text.trim().split('\n');
-      if (lines.length < 2) return [];
-      const headers = lines[0].split(',').map(h => h.trim());
+      const rows = parseCSVRows(text);
+      if (rows.length < 2) return [];
+      const headers = rows[0].map(h => h.trim());
       const results = [];
-      lines.slice(1).forEach((line, i) => {
-        const vals = line.split(',');
+      rows.slice(1).forEach((vals, i) => {
         const raw = {};
-        headers.forEach((h, j) => { raw[h] = (vals[j] || '').trim().replace(/^"|"$/g, ''); });
+        headers.forEach((h, j) => { raw[h] = (vals[j] || '').trim(); });
         const err = validateImportedRow(raw);
         if (!err) results.push(normalizeLogEntry(raw, i));
       });
@@ -3277,7 +3404,7 @@
 
     // -- E0. Toast notification ----------------------------------------------------
     function Toast({ msg, type, onDone }) {
-      useEffect(() => { const t = setTimeout(onDone, 2800); return () => clearTimeout(t); }, []);
+      useEffect(() => { const t = setTimeout(onDone, 2800); return () => clearTimeout(t); }, [onDone]);
       return <div className={`tst ${type}`}>{msg}</div>;
     }
 
@@ -3299,7 +3426,7 @@
     }
 
     // -- E2. Modifier panel (absorption + sensitivity + metabolic output) ----------
-    function ModPanel({ mod }) {
+    function ModPanel({ mod, ui }) {
       const hasMetabolic = mod.metabolic && Object.keys(mod.metabolic).length > 0;
       const confidencePct = Math.round((mod.confidenceFactor ?? 1) * 100);
       const uScalar = mod.U_scalar ?? 1;
@@ -3325,7 +3452,7 @@
             </span>
             <span className="msi"
               title="Sensitivity — how far 1 unit of insulin drops your blood sugar">
-              Sensitivity: <strong style={{ color: modColor(mod.seff_mult) }}>{Math.round(mod.seff)} mg/dL/u</strong>
+              Sensitivity: <strong style={{ color: modColor(mod.seff_mult) }}>{formatCorrFactorForDisplay(mod.seff, ui)} {corrUnitLabel(ui)}</strong>
               <span style={{ color: 'var(--tm)' }}> ({Math.round(mod.seff_mult * 100)}%)</span>
             </span>
             <span className="msi"
@@ -3493,7 +3620,7 @@
                     <span className="bpm-result-unit">BPM</span>
                   </div>
                   <div className="bpm-result-note">
-                    {beatCount} beats in 30 seconds � {hrZone.label}
+                    {beatCount} beats in 30 seconds - {hrZone.label}
                   </div>
                   <button className="btn bg_ bfw" style={{ marginTop: '14px' }} onClick={reset}>
                     ↺ Measure again
@@ -3541,8 +3668,9 @@
       bgErr, fsErr, carbErr, doseBlockReason,
       lowBgLock,
       doseRes, liveMod, totalIOB,
+      actualDose, setActualDose,
       canLogDose, logDisabledReason,
-      cgmReading,
+      cgmReading, ui,
       onLog,
     }) {
       const [bpmOpen, setBpmOpen] = useState(false);
@@ -3562,14 +3690,17 @@
           {cgmReading && (
             <div className="cgm-field-pill">
               <span className="cgm-dot" style={{ background: (Date.now() - cgmReading.mills) < 10 * 60_000 ? '#00d4ff' : '#fbbf24' }} />
-              <span style={{ color: 'var(--ac)', fontWeight: 600 }}>{cgmReading.sgv}</span>
+              <span style={{ color: 'var(--ac)', fontWeight: 600 }}>
+                {formatBgForDisplay(cgmReading.sgv, ui, isMmol(ui) ? 1 : 0)}
+              </span>
+              <span style={{ color: 'var(--td)', fontFamily: 'var(--mono)', fontSize: '11px' }}>{bgUnitLabel(ui)}</span>
               <span style={{ color: NS_ARROW_CLR[cgmReading.direction] || 'var(--td)' }}>{NS_ARROW[cgmReading.direction] || '→'}</span>
               <span style={{ color: 'var(--td)' }}>{deviceLabel(cgmReading.device)}</span>
               <span style={{ color: 'var(--tm)', marginLeft: 'auto', fontSize: '11px' }}>
                 {Math.round((Date.now() - cgmReading.mills) / 60_000)} min ago
               </span>
               <button className="btn bg_ bsm" style={{ padding: '3px 9px', fontSize: '11px' }}
-                onClick={() => setBg(String(cgmReading.sgv))}>
+                onClick={() => setBg(formatBgForDisplay(cgmReading.sgv, ui, isMmol(ui) ? 1 : 0))}>
                 Use
               </button>
             </div>
@@ -3579,22 +3710,39 @@
           <div className="fg">
             <div className="fi">
               <label>{dualBg ? 'Blood Sugar (CGM)' : 'Blood Sugar'}</label>
-              <input type="number" inputMode="decimal" min={BG_ENTRY_MIN} max={BG_ENTRY_MAX} placeholder="e.g. 145"
-                value={bg} onChange={e => setBg(e.target.value)} />
+              <div className="input-unit-wrap">
+                <input type="number" inputMode="decimal"
+                  min={isMmol(ui) ? (BG_ENTRY_MIN / MGDL_PER_MMOL).toFixed(1) : BG_ENTRY_MIN}
+                  max={isMmol(ui) ? (BG_ENTRY_MAX / MGDL_PER_MMOL).toFixed(1) : BG_ENTRY_MAX}
+                  step={isMmol(ui) ? '0.1' : '1'}
+                  placeholder={isMmol(ui) ? 'e.g. 8.1' : 'e.g. 145'}
+                  value={bg} onChange={e => setBg(e.target.value)} />
+                <span className="input-unit-suffix" aria-hidden="true">{bgUnitLabel(ui)}</span>
+              </div>
               {bgErr && <div className="inerr">{bgErr}</div>}
             </div>
             {dualBg && (
               <div className="fi">
                 <label>Fingerstick (if different from CGM)</label>
-                <input type="number" inputMode="decimal" min={BG_ENTRY_MIN} max={BG_ENTRY_MAX} placeholder="Overrides CGM"
-                  value={fs} onChange={e => setFs(e.target.value)} />
+                <div className="input-unit-wrap">
+                  <input type="number" inputMode="decimal"
+                    min={isMmol(ui) ? (BG_ENTRY_MIN / MGDL_PER_MMOL).toFixed(1) : BG_ENTRY_MIN}
+                    max={isMmol(ui) ? (BG_ENTRY_MAX / MGDL_PER_MMOL).toFixed(1) : BG_ENTRY_MAX}
+                    step={isMmol(ui) ? '0.1' : '1'}
+                    placeholder={isMmol(ui) ? 'Overrides CGM' : 'Overrides CGM'}
+                    value={fs} onChange={e => setFs(e.target.value)} />
+                  <span className="input-unit-suffix" aria-hidden="true">{bgUnitLabel(ui)}</span>
+                </div>
                 {fsErr && <div className="inerr">{fsErr}</div>}
               </div>
             )}
             <div className="fi">
-              <label>Carbs (g)</label>
-              <input type="number" inputMode="decimal" min={CARB_ENTRY_MIN} max={CARB_ENTRY_MAX} placeholder="e.g. 45"
-                value={crbs} onChange={e => setCrbs(e.target.value)} />
+              <label>Carbs</label>
+              <div className="input-unit-wrap">
+                <input type="number" inputMode="decimal" min={CARB_ENTRY_MIN} max={CARB_ENTRY_MAX} placeholder="e.g. 45"
+                  value={crbs} onChange={e => setCrbs(e.target.value)} />
+                <span className="input-unit-suffix" aria-hidden="true">g</span>
+              </div>
               {carbErr && <div className="inerr">{carbErr}</div>}
             </div>
             <div className="fi">
@@ -3604,20 +3752,27 @@
                 onChange={e => setEntryTime(e.target.value)} />
             </div>
             <div className="fi advanced-only">
-              <label>Fat (g) <span title="Fat slows gastric emptying and causes a delayed late glucose rise." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
-              <input type="number" inputMode="decimal" placeholder="optional, e.g. 20"
-                value={fat} onChange={e => setFat(e.target.value)} />
+              <label>Fat <span title="Fat slows gastric emptying and causes a delayed late glucose rise." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
+              <div className="input-unit-wrap">
+                <input type="number" inputMode="decimal" placeholder="optional, e.g. 20"
+                  value={fat} onChange={e => setFat(e.target.value)} />
+                <span className="input-unit-suffix" aria-hidden="true">g</span>
+              </div>
             </div>
             <div className="fi advanced-only">
-              <label>Protein (g) <span title="Protein is partially converted to glucose over several hours." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
-              <input type="number" inputMode="decimal" placeholder="optional, e.g. 30"
-                value={protein} onChange={e => setProtein(e.target.value)} />
+              <label>Protein <span title="Protein is partially converted to glucose over several hours." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
+              <div className="input-unit-wrap">
+                <input type="number" inputMode="decimal" placeholder="optional, e.g. 30"
+                  value={protein} onChange={e => setProtein(e.target.value)} />
+                <span className="input-unit-suffix" aria-hidden="true">g</span>
+              </div>
             </div>
             <div className="fi">
-              <label>Heart Rate (bpm) <span title="Used to estimate how fast insulin is absorbed." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
+              <label>Heart Rate <span title="Used to estimate how fast insulin is absorbed." style={{ cursor: 'help', opacity: .7 }}>?</span></label>
               <div className="hr-field-wrap">
                 <input type="number" inputMode="decimal" placeholder={`e.g. ${HR_ref}`}
                   value={hr} onChange={e => setHr(e.target.value)} />
+                <span className="input-unit-suffix" aria-hidden="true">bpm</span>
                 <button type="button" className="bpm-trigger" onClick={() => setBpmOpen(true)}
                   title="Measure your heart rate with a guided 30-second tap test">
                   <svg viewBox="0 0 24 24"><path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z" /></svg>
@@ -3812,7 +3967,7 @@
                   bgZone === 'high' ? '⬆️ High BG — insulin may work weaker right now.' :
                     '✅ In range — insulin is working normally.'}
               </div>
-              <div className="bgzv">{effBgNum} mg/dL</div>
+              <div className="bgzv">{formatBgForDisplay(effBgNum, ui, isMmol(ui) ? 1 : 0)} {bgUnitLabel(ui)}</div>
             </div>
           )}
 
@@ -3820,7 +3975,7 @@
             <div className="hypo-screen">
               <div className="title">Dosing Locked for Low BG</div>
               <div className="msg">
-                Current BG is <strong>{effBgNum} mg/dL</strong>, below your low threshold of <strong>{lowBGThreshold} mg/dL</strong>.
+                Current BG is <strong>{formatBgForDisplay(effBgNum, ui, isMmol(ui) ? 1 : 0)} {bgUnitLabel(ui)}</strong>, below your low threshold of <strong>{formatBgForDisplay(lowBGThreshold, ui, isMmol(ui) ? 1 : 0)} {bgUnitLabel(ui)}</strong>.
                 Treat hypoglycemia first, recheck BG, then calculate/log insulin.
               </div>
             </div>
@@ -3845,7 +4000,7 @@
                   <div className="rv">{doseRes.total}<span style={{ fontSize: '18px', color: 'var(--td)' }}>u</span></div>
                 </div>
                 <div className="rb">
-                  {doseRes.corrDoseBase > 0 && <>{`Correction: (${effBgNum} - ${targetBG}) / ${doseRes.corrSensitivity} = +${doseRes.corrDoseBase}u`}<br /></>}
+                  {doseRes.corrDoseBase > 0 && <>{`Correction: (${formatBgForDisplay(effBgNum, ui, isMmol(ui) ? 1 : 0)} − ${formatBgForDisplay(targetBG, ui, isMmol(ui) ? 1 : 0)}) / ${formatCorrFactorForDisplay(doseRes.corrSensitivity, ui)} = +${doseRes.corrDoseBase}u`}<br /></>}
                   {doseRes.iobCredit > 0 && <>{`PK IOB credit: -${doseRes.iobCredit}u -> correction ${doseRes.corrDose}u`}<br /></>}
                   {doseRes.correctionBlockedByIob && <span style={{ color: 'var(--r)' }}>Correction blocked by active IOB.</span>}
                   {doseRes.carbDose > 0 && <>{`Carbs: ${crbs}g ÷ ${doseRes.effCR}g/u (adjusted ratio) = +${doseRes.carbDose}u`}<br /></>}
@@ -3858,19 +4013,41 @@
                   <details style={{ marginTop: '7px', cursor: 'pointer' }}>
                     <summary style={{ fontSize: '10px', color: 'var(--td)', fontFamily: 'var(--mono)', outline: 'none' }}>Why this dose?</summary>
                     <div className="rmn" style={{ marginTop: '4px' }}>
-                      Sensitivity: {doseRes.seffDose} mg/dL/u ({Math.round(liveMod.seff_mult * 100)}% of your base {liveMod.seff > 0 ? Math.round(liveMod.seff / liveMod.seff_mult) : '—'})
-                      � Absorption rate: {liveMod.kabs.toFixed(2)} hr⁻¹ ({Math.round(liveMod.kabs_mult * 100)}% of base)
-                      � Injection site: {siteName} ({siteMultiplier.toFixed(2)}× — affects IOB curve, not this dose size)
+                      Sensitivity: {formatCorrFactorForDisplay(doseRes.seffDose, ui)} {corrUnitLabel(ui)} ({Math.round(liveMod.seff_mult * 100)}% of your base {liveMod.seff > 0 ? formatCorrFactorForDisplay(liveMod.seff / liveMod.seff_mult, ui) : '—'})
+                      <br />Absorption rate: {liveMod.kabs.toFixed(2)} hr⁻¹ ({Math.round(liveMod.kabs_mult * 100)}% of base)
+                      <br />Injection site: {siteName} ({siteMultiplier.toFixed(2)}× - affects IOB curve, not this dose size)
                     </div>
                   </details>
                 </div>
               </div>
-              <ModPanel mod={liveMod} />
+              <ModPanel mod={liveMod} ui={ui} />
             </div>
           ) : (
             <div style={{ marginTop: '13px' }}>
               <div className="ct" style={{ marginBottom: '8px' }}>📡 Current Modifiers</div>
-              <ModPanel mod={liveMod} />
+              <ModPanel mod={liveMod} ui={ui} />
+            </div>
+          )}
+
+          {doseRes && (
+            <div className="fi" style={{ marginTop: '12px' }}>
+              <label>Actual Dose You're Taking</label>
+              <div className="input-unit-wrap">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={actualDose}
+                  onChange={e => setActualDose(e.target.value)}
+                  placeholder={String(doseRes.total)}
+                />
+                <span className="input-unit-suffix">units</span>
+              </div>
+              {actualDose !== '' && Number.isFinite(parseFloat(actualDose)) && parseFloat(actualDose) !== doseRes.total && (
+                <div className="note" style={{ color: 'var(--y)', marginTop: '4px' }}>
+                  Will log {parseFloat(actualDose)}u — suggested was {doseRes.total}u. IOB and calibration will use your entered value.
+                </div>
+              )}
             </div>
           )}
 
@@ -3891,7 +4068,7 @@
       depressantLevel, setDepressantLevel,
       nicotineLevel, setNicotineLevel,
       thcLevel, setThcLevel,
-      liveMod,
+      liveMod, ui,
     }) {
       return (
         <div>
@@ -3937,8 +4114,8 @@
                 </div>
                 <div className="note" style={{ fontFamily: 'var(--mono)', color: 'var(--td)' }}>
                   Hepatic suppression: <strong style={{ color: 'var(--r)' }}>{Math.round(30 * alcoholLevel)}%</strong> reduction in basal glucose output
-                  &nbsp;�&nbsp; Gastric emptying: slowed by <strong style={{ color: 'var(--y)' }}>{Math.round(20 * alcoholLevel)}%</strong>
-                  &nbsp;�&nbsp; Sensitivity shift: <strong style={{ color: 'var(--ac)' }}>{(liveMod.fAlcohol * 100).toFixed(0)}%</strong>
+                  &nbsp;|&nbsp; Gastric emptying: slowed by <strong style={{ color: 'var(--y)' }}>{Math.round(20 * alcoholLevel)}%</strong>
+                  &nbsp;|&nbsp; Sensitivity shift: <strong style={{ color: 'var(--ac)' }}>{(liveMod.fAlcohol * 100).toFixed(0)}%</strong>
                 </div>
               </div>
             )}
@@ -3986,8 +4163,8 @@
                 </div>
                 <div className="note" style={{ fontFamily: 'var(--mono)', color: 'var(--td)' }}>
                   Sensitivity penalty: <strong style={{ color: 'var(--r)' }}>÷{(1 + 0.2 * stimulantLevel).toFixed(2)}×</strong>
-                  &nbsp;�&nbsp; Hepatic boost: <strong style={{ color: 'var(--y)' }}>+{(0.1 * stimulantLevel).toFixed(2)} mg/dL/hr</strong> G_prod
-                  {liveMod.fStimulant != null && <>&nbsp;�&nbsp; Model factor: <strong style={{ color: 'var(--ac)' }}>{(liveMod.fStimulant * 100).toFixed(0)}%</strong></>}
+                  &nbsp;|&nbsp; Hepatic boost: <strong style={{ color: 'var(--y)' }}>+{(0.1 * stimulantLevel).toFixed(2)} mg/dL/hr</strong> G_prod
+                  {liveMod.fStimulant != null && <>&nbsp;|&nbsp; Model factor: <strong style={{ color: 'var(--ac)' }}>{(liveMod.fStimulant * 100).toFixed(0)}%</strong></>}
                 </div>
               </div>
             )}
@@ -4028,7 +4205,7 @@
                 </div>
                 <div className="note" style={{ fontFamily: 'var(--mono)', color: 'var(--td)' }}>
                   Sleep effect amplified by <strong style={{ color: 'var(--p)' }}>+{Math.round(30 * depressantLevel)}%</strong>
-                  &nbsp;�&nbsp; Gastric emptying slowed by <strong style={{ color: 'var(--y)' }}>{Math.round(15 * depressantLevel)}%</strong>
+                  &nbsp;|&nbsp; Gastric emptying slowed by <strong style={{ color: 'var(--y)' }}>{Math.round(15 * depressantLevel)}%</strong>
                 </div>
               </div>
             )}
@@ -4071,7 +4248,7 @@
                 </div>
                 <div className="note" style={{ fontFamily: 'var(--mono)', color: 'var(--td)' }}>
                   Peripheral disposal penalty: <strong style={{ color: 'var(--o)' }}>÷{(1 + 0.15 * nicotineLevel).toFixed(2)}×</strong>
-                  {liveMod.fNicotine != null && <>&nbsp;�&nbsp; Model factor: <strong style={{ color: 'var(--ac)' }}>{(liveMod.fNicotine * 100).toFixed(0)}%</strong></>}
+                  {liveMod.fNicotine != null && <>&nbsp;|&nbsp; Model factor: <strong style={{ color: 'var(--ac)' }}>{(liveMod.fNicotine * 100).toFixed(0)}%</strong></>}
                 </div>
               </div>
             )}
@@ -4112,7 +4289,7 @@
                 </div>
                 <div className="note" style={{ fontFamily: 'var(--mono)', color: 'var(--td)' }}>
                   Gastric emptying slowed by <strong style={{ color: 'var(--g)' }}>{Math.round(25 * thcLevel)}%</strong>
-                  &nbsp;�&nbsp; k_ge multiplier: <strong style={{ color: 'var(--ac)' }}>{(1 - 0.25 * thcLevel).toFixed(2)}×</strong>
+                  &nbsp;|&nbsp; k_ge multiplier: <strong style={{ color: 'var(--ac)' }}>{(1 - 0.25 * thcLevel).toFixed(2)}×</strong>
                 </div>
               </div>
             )}
@@ -4121,7 +4298,7 @@
           {/* Current modifiers panel so user can see combined effect */}
           <div className="card">
             <div className="ct">📡 Current Modifiers (with active substances)</div>
-            <ModPanel mod={liveMod} />
+            <ModPanel mod={liveMod} ui={ui} />
           </div>
         </div>
       );
@@ -4175,8 +4352,8 @@
         const histAtPrev = sorted.filter(x => new Date(x.timestamp) <= new Date(prev.timestamp));
         if (!histAtPrev.length) continue;
 
-        // Shift timestamps so "cur.timestamp" is treated as now for deterministic reconstruction.
-        const shiftMs = Date.now() - new Date(cur.timestamp).getTime();
+        // Shift timestamps so "prev.timestamp" is treated as now for deterministic reconstruction.
+        const shiftMs = Date.now() - new Date(prev.timestamp).getTime();
         const shifted = histAtPrev.map(x => ({
           ...x,
           timestamp: new Date(new Date(x.timestamp).getTime() + shiftMs).toISOString(),
@@ -4438,6 +4615,51 @@
       );
     }
 
+    // Unit-aware settings field for BG values (targetBG, lowBG, highBG).
+    // Stores mg/dL internally; displays in the user's chosen unit.
+    function BgSField({ label, k, s, set, ui }) {
+      const [text, setText] = useState(() => formatBgForDisplay(s[k], ui, isMmol(ui) ? 1 : 0));
+      useEffect(() => { setText(formatBgForDisplay(s[k], ui, isMmol(ui) ? 1 : 0)); }, [s[k], ui.glucoseUnit]);
+      return (
+        <div className="fi">
+          <label>{label}</label>
+          <div className="input-unit-wrap">
+            <input type="number" inputMode="decimal" step={isMmol(ui) ? '0.1' : '1'}
+              value={text}
+              onChange={e => {
+                setText(e.target.value);
+                const mgdl = parseBgFromDisplay(e.target.value, ui);
+                if (mgdl != null && mgdl > 0) set(x => ({ ...x, [k]: mgdl }));
+              }}
+              onBlur={() => setText(formatBgForDisplay(s[k], ui, isMmol(ui) ? 1 : 0))} />
+            <span className="input-unit-suffix" aria-hidden="true">{bgUnitLabel(ui)}</span>
+          </div>
+        </div>
+      );
+    }
+
+    // Unit-aware settings field for correction factor (mg/dL/u → mmol/L/u).
+    function CorrSField({ label, k, s, set, ui }) {
+      const [text, setText] = useState(() => formatCorrFactorForDisplay(s[k], ui));
+      useEffect(() => { setText(formatCorrFactorForDisplay(s[k], ui)); }, [s[k], ui.glucoseUnit]);
+      return (
+        <div className="fi">
+          <label>{label}</label>
+          <div className="input-unit-wrap">
+            <input type="number" inputMode="decimal" step={isMmol(ui) ? '0.1' : '1'}
+              value={text}
+              onChange={e => {
+                setText(e.target.value);
+                const mgdl = parseCorrFactorFromDisplay(e.target.value, ui);
+                if (mgdl != null && mgdl > 0) set(x => ({ ...x, [k]: mgdl }));
+              }}
+              onBlur={() => setText(formatCorrFactorForDisplay(s[k], ui))} />
+            <span className="input-unit-suffix" aria-hidden="true">{corrUnitLabel(ui)}</span>
+          </div>
+        </div>
+      );
+    }
+
     function SettingsPanel({ profile, setProfile, sim, setSim, ui, setUi, logs, showT, cgmCfg, setCgmCfg }) {
       const [showAdv, setAdv] = useState(false);
 
@@ -4446,6 +4668,23 @@
           {/* UI prefs */}
           <div className="sst">🖥 Display Preferences</div>
           <div className="sg">
+            <div className="fi" style={{ gridColumn: '1/-1' }}>
+              <label>Glucose Units</label>
+              <div className="pal2">
+                <button type="button"
+                  className={`pab ${ui.glucoseUnit !== 'mmol' ? 'on' : ''}`}
+                  aria-pressed={ui.glucoseUnit !== 'mmol'}
+                  onClick={() => setUi(x => ({ ...x, glucoseUnit: 'mgdl' }))}>
+                  mg/dL
+                </button>
+                <button type="button"
+                  className={`pab ${ui.glucoseUnit === 'mmol' ? 'on' : ''}`}
+                  aria-pressed={ui.glucoseUnit === 'mmol'}
+                  onClick={() => setUi(x => ({ ...x, glucoseUnit: 'mmol' }))}>
+                  mmol/L
+                </button>
+              </div>
+            </div>
             <div className={`slp blue-on ${ui.dualBg ? 'on' : ''}`} style={{ gridColumn: '1/-1' }}
               onClick={() => setUi(x => ({ ...x, dualBg: !x.dualBg }))}>
               <div className={`trk blue-on ${ui.dualBg ? 'on' : ''}`}><div className="thm" /></div>
@@ -4495,13 +4734,13 @@
           {/* Clinical dosing */}
           <div className="sst">💊 Dosing Settings</div>
           <div className="sg">
-            <SField label="Carb Ratio (g/unit)" k="carbRatio" s={profile} set={setProfile} />
-            <SField label="Correction Factor (mg/dL/u)" k="corrFactor" s={profile} set={setProfile} />
-            <SField label="Target BG (mg/dL)" k="targetBG" s={profile} set={setProfile} />
+            <SField label="Carb Ratio (g/u)" k="carbRatio" s={profile} set={setProfile} />
+            <CorrSField label="Correction Factor" k="corrFactor" s={profile} set={setProfile} ui={ui} />
+            <BgSField label="Target BG" k="targetBG" s={profile} set={setProfile} ui={ui} />
             <SField label="Base Insulin Duration (hr)" k="insulinDur" s={profile} set={setProfile} step="0.5" />
-            <SField label="Low BG threshold (mg/dL)" k="lowBG" s={profile} set={setProfile} />
-            <SField label="High BG threshold (mg/dL)" k="highBG" s={profile} set={setProfile} />
-            <SField label="Basal Rate (units/hr)" k="basalRate" s={profile} set={setProfile} step="0.05" />
+            <BgSField label="Low BG threshold" k="lowBG" s={profile} set={setProfile} ui={ui} />
+            <BgSField label="High BG threshold" k="highBG" s={profile} set={setProfile} ui={ui} />
+            <SField label="Basal Rate (u/hr)" k="basalRate" s={profile} set={setProfile} step="0.05" />
             <SField label="Max single dose (u)" k="maxDose" s={profile} set={setProfile} step="0.5" />
           </div>
 
@@ -4692,7 +4931,7 @@
           </>)}
 
           {/* CGM / Nightscout */}
-          <div className="sst">📡 CGM Live Feed � Nightscout REST</div>
+          <div className="sst">📡 CGM Live Feed - Nightscout REST</div>
           <div className="note" style={{ marginBottom: '12px', lineHeight: '1.9' }}>
             Reads glucose data from your own Nightscout instance via its public REST API. Works with
             Dexcom, FreeStyle Libre, Medtronic, xDrip+, Spike, Tidepool, and any other CGM that
@@ -4770,7 +5009,7 @@
                 2. Your phone app → uploads readings to your Nightscout server in the cloud.<br />
                 3. This app → polls <code style={{ color: 'var(--ac)', fontSize: '11px' }}>/api/v1/entries/current.json</code> every {cgmCfg.pollMins} min.<br />
                 ✓ Nothing is altered. No Bluetooth, no receiver pairing, no CGM app modification.<br />
-                Supported: Dexcom G5/G6/G7/ONE � FreeStyle Libre 1/2/3 � Medtronic 640G/670G/770G � xDrip+ � Spike � Glimp
+                Supported: Dexcom G5/G6/G7/ONE | FreeStyle Libre 1/2/3 | Medtronic 640G/670G/770G | xDrip+ | Spike | Glimp
               </div>
             </>)}
           </div>
@@ -4788,7 +5027,7 @@
     }
 
     // -- E5. BG + Insulin chart ----------------------------------------------------
-    function ProjectionChart({ logs, projection }) {
+    function ProjectionChart({ logs, projection, ui }) {
       const ref = useRef(null);
       const inst = useRef(null);
 
@@ -4796,7 +5035,7 @@
         if (!ref.current) return;
         const hist = [...logs].filter(l => l.bloodSugar != null)
           .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)).slice(-40);
-        if (inst.current) inst.current.destroy();
+        if (inst.current) { inst.current.destroy(); inst.current = null; }
         const now = new Date();
         const projLabels = projection.map(pt => {
           const d = new Date(now.getTime() + pt.t * 3_600_000);
@@ -4895,7 +5134,7 @@
               x: { ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 }, maxRotation: 45 }, grid: { color: '#1e2d45' } },
               yBG: {
                 position: 'left', ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } }, grid: { color: '#1e2d45' },
-                title: { display: true, text: 'mg/dL', color: '#00d4ff', font: { size: 9 } }
+                title: { display: true, text: bgUnitLabel(ui), color: '#00d4ff', font: { size: 9 } }
               },
               yIns: {
                 position: 'right', ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } },
@@ -4909,8 +5148,8 @@
             },
           },
         });
-        return () => { if (inst.current) inst.current.destroy(); };
-      }, [logs, projection]);
+        return () => { if (inst.current) { inst.current.destroy(); inst.current = null; } };
+      }, [logs, projection, ui]);
 
       if (!logs.filter(l => l.bloodSugar != null).length)
         return <div className="es"><div className="ei">📈</div>Log readings to see graph</div>;
@@ -4918,7 +5157,7 @@
     }
 
     // -- E6. Log table -------------------------------------------------------------
-    function LogTable({ logs, profile, onDelete }) {
+    function LogTable({ logs, profile, onDelete, ui }) {
       if (!logs.length)
         return <div className="es"><div className="ei">📋</div>No entries yet</div>;
       return (
@@ -4948,10 +5187,10 @@
                     {l.bloodSugar != null ? (
                       <span className={`tag t${zone(l.bloodSugar, profile)[0]}`}
                         title={l.fingerstick ? 'Fingerstick calibration used' : 'CGM reading'}>
-                        {l.fingerstick ? '🩸 ' : (l.cgm ? '📡 ' : '')}{l.bloodSugar}
+                        {l.fingerstick ? '🩸 ' : (l.cgm ? '📡 ' : '')}{formatBgForDisplay(l.bloodSugar, ui, isMmol(ui) ? 1 : 0)}
                       </span>
                     ) : '—'}
-                    {l.cgm && l.fingerstick && <span style={{ fontSize: '10px', color: 'var(--tm)', marginLeft: '4px' }}>({l.cgm})</span>}
+                    {l.cgm && l.fingerstick && <span style={{ fontSize: '10px', color: 'var(--tm)', marginLeft: '4px' }}>({formatBgForDisplay(l.cgm, ui, isMmol(ui) ? 1 : 0)})</span>}
                   </td>
                   <td>{l.carbs ? `${l.carbs}g` : '—'}</td>
                   <td style={{ color: 'var(--ac)' }}>{l.insulinDose ? `${l.insulinDose}u` : '—'}</td>
@@ -4968,7 +5207,7 @@
                   <td style={{ color: 'var(--td)' }}>{l.pa != null ? `${l.pa}M` : '—'}</td>
                   <td style={{ color: 'var(--td)' }}>{l.hr || '—'}</td>
                   <td style={{ color: l.stress > 0 ? 'var(--y)' : 'var(--td)' }}>
-                    {l.stress > 0 ? STRESS_LEVELS[l.stress]?.label ?? l.stress : '—'}
+                    {l.stress > 0 ? STRESS_LEVELS.find(s => s.value === l.stress)?.label ?? l.stress : '—'}
                     {l.illness ? ' 🤒' : ''}
                   </td>
                   <td style={{ color: 'var(--td)', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.notes || '—'}</td>
@@ -5033,6 +5272,18 @@
       const [thcLevel, setThcLevel] = useState(0); // 0/0.5/1 — 4.5 THC
       const [siteIdx, setSiteIdx] = useState(0);       // 0=abdomen
       const [not, setNot] = useState('');
+      const [actualDose, setActualDose] = useState(''); // user override of suggested dose
+
+      // -- Re-format BG/FS display strings when glucose unit changes -----------------
+      const prevUnitRef = useRef(ui.glucoseUnit);
+      useEffect(() => {
+        const prev = prevUnitRef.current;
+        prevUnitRef.current = ui.glucoseUnit;
+        if (prev === ui.glucoseUnit) return;
+        const prevUi = { glucoseUnit: prev };
+        if (bg !== '') { const m = parseBgFromDisplay(bg, prevUi); if (m != null) setBg(formatBgForDisplay(m, ui, isMmol(ui) ? 1 : 0)); }
+        if (fs !== '') { const m = parseBgFromDisplay(fs, prevUi); if (m != null) setFs(formatBgForDisplay(m, ui, isMmol(ui) ? 1 : 0)); }
+      }, [ui.glucoseUnit]);
 
       // -- Persistence effects -------------------------------------------------------
       useEffect(() => { localStorage.setItem(STORE_PROFILE, JSON.stringify(profile)); }, [profile]);
@@ -5043,11 +5294,6 @@
       }, [ui.theme]);
       useEffect(() => { localStorage.setItem(STORE_LOGS, JSON.stringify(logs)); }, [logs]);
       useEffect(() => { localStorage.setItem(STORE_CGM, JSON.stringify(cgmCfg)); }, [cgmCfg]);
-      useEffect(() => {
-        const h = () => { if (logs.length > 0) dlCSV(logs); };
-        window.addEventListener('beforeunload', h);
-        return () => window.removeEventListener('beforeunload', h);
-      }, [logs]);
 
       // -- CGM polling effect --------------------------------------------------------
       useEffect(() => {
@@ -5062,7 +5308,9 @@
             const ageMin = (Date.now() - reading.mills) / 60_000;
             setCgmStatus(ageMin > 15 ? 'stale' : 'live');
             // Auto-fill BG field if enabled and field is empty
-            if (cgmCfg.autoFill) setBg(prev => prev === '' ? String(reading.sgv) : prev);
+            if (cgmCfg.autoFill) {
+              setBg(prev => prev === '' ? formatBgForDisplay(reading.sgv, ui, isMmol(ui) ? 1 : 0) : prev);
+            }
             // Fetch history for mini-trend (non-fatal)
             fetchNSHistory(cgmCfg, 12).then(h => setCgmHistory(h)).catch(() => { });
           } catch (err) {
@@ -5074,7 +5322,7 @@
         const intervalMs = Math.max(1, cgmCfg.pollMins) * 60_000;
         const id = setInterval(poll, intervalMs);
         return () => clearInterval(id);
-      }, [cgmCfg.enabled, cgmCfg.url, cgmCfg.authMethod, cgmCfg.apiSecret, cgmCfg.token, cgmCfg.pollMins, cgmCfg.autoFill]);
+      }, [cgmCfg.enabled, cgmCfg.url, cgmCfg.authMethod, cgmCfg.apiSecret, cgmCfg.token, cgmCfg.pollMins, cgmCfg.autoFill, ui]);
 
       const showT = (msg, type = 'ok') => setToast({ msg, type, id: Date.now() });
 
@@ -5082,13 +5330,13 @@
       const sv = useMemo(() => computeStateVars(logs, profile, sim), [logs, profile, sim]);
       const pkState = useMemo(() => reconstructPK(logs, profile, sim), [logs, profile, sim]);
       const mealState = useMemo(() => reconstructMealState(logs, profile, sim), [logs, profile, sim]);
-      const timeHour = useMemo(() => new Date().getHours() + new Date().getMinutes() / 60, []);
+      const timeHour = new Date().getHours() + new Date().getMinutes() / 60;
 
       const hrNum = safeNum(hr, profile.HR_ref);
       const paNum = ACTIVITY_LEVELS[paiX].mets;
       const entryValidation = useMemo(() => validateEntryInputs({
-        bg, fs, crbs, dualBg: ui.dualBg,
-      }), [bg, fs, crbs, ui.dualBg]);
+        bg, fs, crbs, dualBg: ui.dualBg, ui,
+      }), [bg, fs, crbs, ui.dualBg, ui.glucoseUnit]);
       const effBgNum = entryValidation.effBg ?? profile.targetBG;
       const lowBgLock = entryValidation.effBg != null
         && !entryValidation.bgErr
@@ -5155,7 +5403,7 @@
       }, [entryValidation.canCompute, lowBgLock, effBgNum, crbs, sv, inp, profile, sim, pkCorrRec]);
       const logDisabledReason =
         entryValidation.bgErr || entryValidation.fsErr || entryValidation.carbErr ||
-        (lowBgLock ? `BG below low threshold (${profile.lowBG} mg/dL)` : null) ||
+        (lowBgLock ? `BG below low threshold (${formatBgForDisplay(profile.lowBG, ui, isMmol(ui) ? 1 : 0)} ${bgUnitLabel(ui)})` : null) ||
         entryValidation.doseBlockReason ||
         (!doseRes ? 'Enter valid BG/carbs to calculate dose' : null);
       const canLogDose = !logDisabledReason;
@@ -5186,7 +5434,7 @@
       const handleLog = () => {
         if (entryValidation.bgErr || entryValidation.fsErr) { showT('Fix blood sugar input range before logging', 'err'); return; }
         if (entryValidation.carbErr) { showT('Fix carb input range before logging', 'err'); return; }
-        if (lowBgLock) { showT(`Dose logging locked while BG is below ${profile.lowBG} mg/dL`, 'err'); return; }
+        if (lowBgLock) { showT(`Dose logging locked while BG is below ${formatBgForDisplay(profile.lowBG, ui, isMmol(ui) ? 1 : 0)} ${bgUnitLabel(ui)}`, 'err'); return; }
         if (entryValidation.doseBlockReason) { showT(entryValidation.doseBlockReason, 'err'); return; }
 
         const bgV = entryValidation.bgV;
@@ -5198,8 +5446,12 @@
         const cV = safeNum(entryValidation.carbV, 0);
         const fatV = safeNum(fat, 0);
         const proteinV = safeNum(protein, 0);
-        const dose = doseRes || calcDose(effBg, cV, sv, inp, profile, sim, pkCorrRec);
-        if (!dose) { showT('Dose calculation blocked by safety limits', 'err'); return; }
+        const baseDose = doseRes || calcDose(effBg, cV, sv, inp, profile, sim, pkCorrRec);
+        if (!baseDose) { showT('Dose calculation blocked by safety limits', 'err'); return; }
+        const actualDoseNum = actualDose !== '' ? safeNum(actualDose, null) : null;
+        const dose = (actualDoseNum !== null && Number.isFinite(actualDoseNum) && actualDoseNum >= 0)
+          ? { ...baseDose, total: Math.round(actualDoseNum * 10) / 10 }
+          : baseDose;
         const entry = makeLogEntry({
           bgV, fsV, cV, hrNum, paNum, slp, sleepQ, stress, illness, hydration,
           site: INJECTION_SITES[siteIdx].profileKey.replace('siteMult_', ''),
@@ -5211,9 +5463,9 @@
           not,
         }, dose, liveMod);
         setLogs(prev => [entry, ...prev]);
-        setBg(''); setFs(''); setCrbs(''); setEntryTime(''); setHr(''); setFat(''); setProtein(''); setNot('');
+        setBg(''); setFs(''); setCrbs(''); setEntryTime(''); setHr(''); setFat(''); setProtein(''); setNot(''); setActualDose('');
         if (dose.capped) showT(`Logged capped dose ${dose.total}u (cap ${dose.maxDose}u; uncapped ${dose.uncappedTotal}u)`, 'err');
-        else showT(`Logged ${dose.total}u � sensitivity ${dose.seffDose} mg/dL/u`);
+        else showT(`Logged ${dose.total}u · sensitivity ${formatCorrFactorForDisplay(dose.seffDose, ui)} ${corrUnitLabel(ui)}`);
       };
 
       const handleCSV = e => {
@@ -5256,11 +5508,14 @@
               {/* CGM badge — only when enabled */}
               {cgmCfg.enabled && cgmCfg.url && (
                 <div className={`cgm-badge ${cgmStatus === 'live' ? 'live' : cgmStatus === 'stale' ? 'stale' : cgmStatus === 'error' ? 'error' : 'polling'}`}
-                  title={cgmReading ? `${deviceLabel(cgmReading.device)} � ${Math.round((Date.now() - cgmReading.mills) / 60_000)} min ago` : 'Waiting for CGM data…'}>
+                  title={cgmReading ? `${deviceLabel(cgmReading.device)} - ${Math.round((Date.now() - cgmReading.mills) / 60_000)} min ago` : 'Waiting for CGM data…'}>
                   <span className="cgm-dot" style={{ background: cgmStatus === 'live' ? '#00d4ff' : cgmStatus === 'stale' ? '#fbbf24' : cgmStatus === 'error' ? '#ff6b6b' : '#64748b' }} />
                   {cgmReading ? (
                     <>
-                      <span style={{ color: cgmStatus === 'live' ? 'var(--ac)' : cgmStatus === 'stale' ? 'var(--y)' : 'var(--td)', fontWeight: 600 }}>{cgmReading.sgv}</span>
+                      <span style={{ color: cgmStatus === 'live' ? 'var(--ac)' : cgmStatus === 'stale' ? 'var(--y)' : 'var(--td)', fontWeight: 600 }}>
+                        {formatBgForDisplay(cgmReading.sgv, ui, isMmol(ui) ? 1 : 0)}
+                      </span>
+                      <span style={{ color: 'var(--td)', fontFamily: 'var(--mono)', fontSize: '10px' }}>{bgUnitLabel(ui)}</span>
                       <span style={{ color: NS_ARROW_CLR[cgmReading.direction] || 'var(--td)' }}>{NS_ARROW[cgmReading.direction] || '→'}</span>
                       {cgmHistory.length > 1 && (
                         <div className="cgm-trend-bar-wrap">
@@ -5360,6 +5615,7 @@
               doseBlockReason={entryValidation.doseBlockReason}
               lowBgLock={lowBgLock}
               doseRes={doseRes} liveMod={liveMod} totalIOB={totalIOB}
+              actualDose={actualDose} setActualDose={setActualDose}
               canLogDose={canLogDose}
               logDisabledReason={logDisabledReason}
               cgmReading={cgmReading}
@@ -5386,7 +5642,7 @@
                           {l.bloodSugar != null ? (
                             <span className={`tag t${zone(l.bloodSugar, profile)[0]}`}
                               title={l.fingerstick ? 'Fingerstick' : 'CGM'}>
-                              {l.fingerstick ? '🩸 ' : (l.cgm ? '📡 ' : '')}{l.bloodSugar}
+                              {l.fingerstick ? '🩸 ' : (l.cgm ? '📡 ' : '')}{formatBgForDisplay(l.bloodSugar, ui, isMmol(ui) ? 1 : 0)}
                             </span>
                           ) : '—'}
                         </td>
@@ -5431,7 +5687,7 @@
                     return (
                       <div className="iobdr" key={l.id}>
                         <span>{fmtDT(l.timestamp)}</span>
-                        <span style={{ color: 'var(--td)' }}>{l.insulinDose}u � {ed}h eff.</span>
+                        <span style={{ color: 'var(--td)' }}>{l.insulinDose}u - {ed}h eff.</span>
                         <span style={{ color: 'var(--ac)' }}>{l.rem}u ({Math.max(0, Math.round((1 - el / ed) * 100))}%)</span>
                       </div>
                     );
@@ -5549,29 +5805,29 @@
                 {projection.filter((_, i) => i % 2 === 0 || i === projection.length - 1).map((pt, i) => (
                   <div className="projgi" key={i}
                     style={{ borderColor: bgColor(pt.G) + '44', background: bgColor(pt.G) + '0a' }}>
-                    <div className="projgt" style={{ color: bgColor(pt.G) }}>{pt.G}</div>
+                    <div className="projgt" style={{ color: bgColor(pt.G) }}>{formatBgForDisplay(pt.G, ui, isMmol(ui) ? 1 : 0)}</div>
                     {pt.u > 0 && (
                       <div style={{
                         fontSize: '9px', fontFamily: 'var(--mono)', letterSpacing: '.04em',
                         color: pt.u < 10 ? 'var(--g)' : pt.u < 22 ? 'var(--y)' : pt.u < 38 ? 'var(--o)' : 'var(--r)'
                       }}>
-                        ±{pt.u}
+                        ±{formatBgForDisplay(pt.u, ui, isMmol(ui) ? 1 : 0)}
                       </div>
                     )}
-                    <div className="projgl">{pt.t === 0 ? 'Now' : `+${Math.round(pt.t * 60)}min`}<br />mg/dL</div>
+                    <div className="projgl">{pt.t === 0 ? 'Now' : `+${Math.round(pt.t * 60)}min`}<br />{bgUnitLabel(ui)}</div>
                   </div>
                 ))}
               </div>
               {projBgEnd != null && (
                 <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--td)', fontFamily: 'var(--mono)' }}>
-                  Projected in 4h: <strong style={{ color: bgColor(projBgEnd) }}>{projBgEnd} mg/dL</strong>
+                  Projected in 4h: <strong style={{ color: bgColor(projBgEnd) }}>{formatBgForDisplay(projBgEnd, ui, isMmol(ui) ? 1 : 0)} {bgUnitLabel(ui)}</strong>
                   &nbsp; {projLabel(projBgEnd, profile)}
                   {(projection.at(-1)?.u ?? 0) > 0 && (
                     <span style={{
                       marginLeft: '8px',
                       color: (projection.at(-1).u < 22) ? 'var(--y)' : 'var(--o)',
                     }}>
-                      ±{projection.at(-1).u} mg/dL band
+                      ±{formatBgForDisplay(projection.at(-1).u, ui, isMmol(ui) ? 1 : 0)} {bgUnitLabel(ui)} band
                     </span>
                   )}
                 </div>
@@ -5581,7 +5837,7 @@
             {/* Current modifiers */}
             <div className="card">
               <div className="ct">📡 Current Modifiers</div>
-              <ModPanel mod={liveMod} />
+              <ModPanel mod={liveMod} ui={ui} />
             </div>
           </>)}
 
@@ -5589,7 +5845,7 @@
           {tab === 'history' && (<>
             <div className="card">
               <div className="ct">📈 Blood Sugar, Insulin & Forecast</div>
-              <ProjectionChart logs={logs} projection={projection} />
+              <ProjectionChart logs={logs} projection={projection} ui={ui} />
               <div className="note" style={{ marginTop: '8px' }}>
                 Dashed line = prediction based on your current insulin and activity. Orange = sensitivity %. Purple bars = doses.
               </div>
@@ -5610,7 +5866,7 @@
                   </button>
                 )}
               </div>
-              <LogTable logs={logs} profile={profile} onDelete={handleDelete} />
+              <LogTable logs={logs} profile={profile} onDelete={handleDelete} ui={ui} />
             </div>
             <div className="card">
               <div className="ct">📂 Import From Device</div>
@@ -5645,7 +5901,7 @@
               depressantLevel={depressantLevel} setDepressantLevel={setDepressantLevel}
               nicotineLevel={nicotineLevel} setNicotineLevel={setNicotineLevel}
               thcLevel={thcLevel} setThcLevel={setThcLevel}
-              liveMod={liveMod}
+              liveMod={liveMod} ui={ui}
             />
           )}
 

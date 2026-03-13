@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>InsulinTrack - Insulin Action Model</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -78,6 +78,8 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
       padding: 20px 0 22px;
       border-bottom: 1px solid var(--bd);
       margin-bottom: 18px;
@@ -87,6 +89,16 @@
       display: flex;
       align-items: center;
       gap: 12px;
+      min-width: 0;
+    }
+
+    .hdr-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      margin-left: auto;
     }
 
     .logo {
@@ -119,6 +131,10 @@
     .tabs {
       display: flex;
       gap: 4px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: thin;
+      -webkit-overflow-scrolling: touch;
       background: var(--s1);
       border: 1px solid var(--bd);
       border-radius: var(--rad);
@@ -784,6 +800,10 @@
     .chart-tabs {
       display: flex;
       gap: 3px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: thin;
+      -webkit-overflow-scrolling: touch;
       background: var(--s2);
       border: 1px solid var(--bd);
       border-radius: 10px;
@@ -858,7 +878,24 @@
 
     .lscroll {
       max-height: 300px;
-      overflow-y: auto;
+      max-width: 100%;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .lscroll .lt {
+      min-width: 980px;
+    }
+
+    .table-scroll {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .table-scroll .lt {
+      min-width: 560px;
     }
 
     /* -- Settings ---------------------------------------------------------------- */
@@ -1750,11 +1787,36 @@
       }
     }
 
+    @media (max-width: 720px) {
+      .hdr-actions {
+        width: 100%;
+        margin-left: 0;
+        justify-content: flex-start;
+      }
+
+      .tab,
+      .chart-tab {
+        flex: 0 0 auto;
+        min-width: 120px;
+      }
+
+      .hr-field-wrap {
+        flex-wrap: wrap;
+      }
+
+      .bpm-trigger {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+
     /* -- CGM Live Feed (Nightscout) ----------------------------------------------- */
     .cgm-badge {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 6px;
+      max-width: 100%;
       padding: 5px 11px;
       border-radius: 8px;
       font-family: var(--mono);
@@ -2167,6 +2229,20 @@
     const STORE_UI = 'it_ui_v10';
     const STORE_LOGS = 'it_logs_v10';
     const STORE_CGM = 'it_cgm_v10'; // Nightscout CGM config
+    const RESET_STATE_FLAG = 'resetState';
+
+    function maybeResetStoredStateFromUrl() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get(RESET_STATE_FLAG) !== '1') return false;
+        [STORE_PROFILE, STORE_SIM, STORE_UI, STORE_LOGS, STORE_CGM].forEach(key => localStorage.removeItem(key));
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    const DID_RESET_STORED_STATE = maybeResetStoredStateFromUrl();
 
     // Safety guardrails for entry validation and dose computation.
     const BG_ENTRY_MIN = 20;
@@ -3773,6 +3849,123 @@
       return `0 0 ${spread}px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
     }
 
+    function bgValueForDisplayNumber(mgdl, ui) {
+      if (mgdl == null || !Number.isFinite(Number(mgdl))) return null;
+      return isMmol(ui) ? Number(mgdl) / MGDL_PER_MMOL : Number(mgdl);
+    }
+
+    function glucoseRateForDisplayNumber(mgdlPerMin, ui) {
+      return bgValueForDisplayNumber(mgdlPerMin, ui);
+    }
+
+    function formatBgDeltaForDisplay(mgdl, ui, digits = 1) {
+      const value = bgValueForDisplayNumber(mgdl, ui);
+      if (value == null) return '';
+      return isMmol(ui) ? value.toFixed(digits) : value.toFixed(digits).replace(/\.0$/, '');
+    }
+
+    function formatChartTick(value, ui, digits = 1) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return '';
+      return isMmol(ui) ? n.toFixed(digits) : String(Math.round(n));
+    }
+
+    function formatRateTick(value, ui, digits = 2) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return '';
+      return n.toFixed(digits).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+    }
+
+    function glucoseAxisTitle(ui) {
+      return `Glucose (${bgUnitLabel(ui)})`;
+    }
+
+    function glucoseRateUnitLabel(ui) {
+      return isMmol(ui) ? 'mmol/L/min' : 'mg/dL/min';
+    }
+
+    function glucoseRateAxisTitle(ui) {
+      return `Rate (${glucoseRateUnitLabel(ui)})`;
+    }
+
+    function colorWithAlpha(color, alpha, fallback = '#000000') {
+      const rgb = hexToRgb(color) || hexToRgb(fallback);
+      if (!rgb) return color;
+      return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+    }
+
+    function getChartTheme(ui) {
+      const theme = ui?.theme || 'dark';
+      const colors = effectiveCustomColors(theme, ui?.customColors);
+      const info = theme === 'high-vis' ? '#7dd3fc' : theme === 'light' ? '#2563eb' : '#3b82f6';
+      const teal = theme === 'high-vis' ? '#5eead4' : theme === 'light' ? '#0f766e' : '#14b8a6';
+      return {
+        bg: colors.bg,
+        surface: colors.s1,
+        surfaceAlt: colors.s2,
+        border: colors.bd,
+        accent: colors.ac,
+        danger: colors.r,
+        success: colors.g,
+        warning: colors.y,
+        purple: colors.p,
+        orange: colors.o,
+        text: colors.tx,
+        muted: colors.td,
+        faint: colors.tm,
+        info,
+        teal,
+      };
+    }
+
+    function computeNumericAxisBounds(values, {
+      floor = null, ceil = null, step = 1, pad = 0, includeZero = false, minSpan = step,
+    } = {}) {
+      const nums = (values || []).map(Number).filter(Number.isFinite);
+      if (!nums.length) {
+        const baseMin = floor ?? 0;
+        const baseMax = ceil ?? (baseMin + minSpan);
+        return { min: baseMin, max: Math.max(baseMax, baseMin + minSpan) };
+      }
+
+      let lo = Math.min(...nums);
+      let hi = Math.max(...nums);
+      if (includeZero) {
+        lo = Math.min(lo, 0);
+        hi = Math.max(hi, 0);
+      }
+
+      lo -= pad;
+      hi += pad;
+      if (floor != null) lo = Math.max(lo, floor);
+      if (ceil != null) hi = Math.min(hi, ceil);
+      lo = Math.floor(lo / step) * step;
+      hi = Math.ceil(hi / step) * step;
+
+      if (hi - lo < minSpan) {
+        hi = lo + minSpan;
+        if (ceil != null && hi > ceil) {
+          hi = ceil;
+          lo = hi - minSpan;
+        }
+      }
+
+      return { min: lo, max: hi };
+    }
+
+    function computeBgAxisBounds(values, ui, {
+      minMgdl = 40, maxMgdl = BG_ENTRY_MAX, padMgdl = 20,
+    } = {}) {
+      const step = isMmol(ui) ? 0.5 : 10;
+      return computeNumericAxisBounds(values, {
+        floor: bgValueForDisplayNumber(minMgdl, ui),
+        ceil: bgValueForDisplayNumber(maxMgdl, ui),
+        step,
+        pad: bgValueForDisplayNumber(padMgdl, ui) ?? 0,
+        minSpan: step * 4,
+      });
+    }
+
 
     // -------------------------------------------------------------------------------
     //  E.  UI COMPONENTS
@@ -4938,7 +5131,7 @@
       return results;
     }
 
-    function CalibrationTab({ logs, profile, sim, setProfile, setSim, showT }) {
+    function CalibrationTab({ logs, profile, sim, setProfile, setSim, showT, ui }) {
       const [windowN, setWindowN] = useState(8);
       const [tests, setTests] = useState([]);
 
@@ -5008,19 +5201,19 @@
               <>
                 <div className="svg" style={{ marginTop: '10px' }}>
                   <div className="svc">
-                    <div className="svv" style={{ color: stats.meanErr > 0 ? 'var(--y)' : 'var(--g)' }}>{stats.meanErr}</div>
+                    <div className="svv" style={{ color: stats.meanErr > 0 ? 'var(--y)' : 'var(--g)' }}>{formatBgDeltaForDisplay(stats.meanErr, ui)}</div>
                     <div className="svl">Mean Error</div>
-                    <div className="note">pred - actual (mg/dL)</div>
+                    <div className="note">pred - actual ({bgUnitLabel(ui)})</div>
                   </div>
                   <div className="svc">
-                    <div className="svv" style={{ color: 'var(--ac)' }}>{stats.mae}</div>
+                    <div className="svv" style={{ color: 'var(--ac)' }}>{formatBgDeltaForDisplay(stats.mae, ui)}</div>
                     <div className="svl">MAE</div>
-                    <div className="note">absolute error (mg/dL)</div>
+                    <div className="note">absolute error ({bgUnitLabel(ui)})</div>
                   </div>
                   <div className="svc">
-                    <div className="svv" style={{ color: 'var(--o)' }}>{stats.rmse}</div>
+                    <div className="svv" style={{ color: 'var(--o)' }}>{formatBgDeltaForDisplay(stats.rmse, ui)}</div>
                     <div className="svl">RMSE</div>
-                    <div className="note">root mean square error</div>
+                    <div className="note">root mean square error ({bgUnitLabel(ui)})</div>
                   </div>
                 </div>
 
@@ -5037,22 +5230,24 @@
                 )}
 
                 <div className="div" />
-                <table className="lt">
-                  <thead>
-                    <tr><th>Time</th><th>Horizon</th><th>Pred</th><th>Actual</th><th>Error</th></tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r, i) => (
-                      <tr key={i}>
-                        <td>{fmtDT(r.timestamp)}</td>
-                        <td>{r.horizonHr}h</td>
-                        <td>{r.predicted}</td>
-                        <td>{r.actual}</td>
-                        <td style={{ color: r.err > 0 ? 'var(--y)' : 'var(--g)' }}>{r.err}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="table-scroll">
+                  <table className="lt">
+                    <thead>
+                      <tr><th>Time</th><th>Horizon</th><th>Pred</th><th>Actual</th><th>Error</th></tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((r, i) => (
+                        <tr key={i}>
+                          <td>{fmtDT(r.timestamp)}</td>
+                          <td>{r.horizonHr}h</td>
+                          <td>{formatBgForDisplay(r.predicted, ui, isMmol(ui) ? 1 : 0)}</td>
+                          <td>{formatBgForDisplay(r.actual, ui, isMmol(ui) ? 1 : 0)}</td>
+                          <td style={{ color: r.err > 0 ? 'var(--y)' : 'var(--g)' }}>{formatBgDeltaForDisplay(r.err, ui)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </>
             )}
           </div>
@@ -5063,20 +5258,22 @@
             {tests.length > 0 && (
               <>
                 <div className="note" style={{ marginBottom: '8px' }}>{passCount}/{tests.length} tests passing</div>
-                <table className="lt">
-                  <thead>
-                    <tr><th>Test</th><th>Status</th><th>Detail</th></tr>
-                  </thead>
-                  <tbody>
-                    {tests.map((t, i) => (
-                      <tr key={i}>
-                        <td>{t.name}</td>
-                        <td style={{ color: t.ok ? 'var(--g)' : 'var(--r)' }}>{t.ok ? 'PASS' : 'FAIL'}</td>
-                        <td style={{ color: 'var(--td)' }}>{t.detail}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="table-scroll">
+                  <table className="lt">
+                    <thead>
+                      <tr><th>Test</th><th>Status</th><th>Detail</th></tr>
+                    </thead>
+                    <tbody>
+                      {tests.map((t, i) => (
+                        <tr key={i}>
+                          <td>{t.name}</td>
+                          <td style={{ color: t.ok ? 'var(--g)' : 'var(--r)' }}>{t.ok ? 'PASS' : 'FAIL'}</td>
+                          <td style={{ color: 'var(--td)' }}>{t.detail}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </>
             )}
           </div>
@@ -5513,6 +5710,7 @@
 
       useEffect(() => {
         if (!ref.current) return;
+        const colors = getChartTheme(ui);
         const hist = [...logs].filter(l => l.bloodSugar != null)
           .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)).slice(-40);
         if (inst.current) { inst.current.destroy(); inst.current = null; }
@@ -5523,24 +5721,24 @@
         });
         const histLabels = hist.map(l => fmtT(l.timestamp));
         const allLabels = [...histLabels, 'Now', ...projLabels.slice(1)];
-        const histBG = hist.map(l => l.bloodSugar);
-        const projBG = projection.map(p => p.G);
+        const histBG = hist.map(l => bgValueForDisplayNumber(l.bloodSugar, ui));
+        const projBG = projection.map(p => bgValueForDisplayNumber(p.G, ui));
         const bridgePad = hist.length > 0
-          ? [...new Array(hist.length - 1).fill(null), hist.at(-1)?.bloodSugar ?? null]
+          ? [...new Array(hist.length - 1).fill(null), bgValueForDisplayNumber(hist.at(-1)?.bloodSugar ?? null, ui)]
           : [];
         const nullPad = new Array(hist.length).fill(null);
 
         // -- 5.1 Confidence band arrays -----------------------------------------
         // The first projection point (t=0) has u=0, so the band starts tight and
         // widens naturally as the √t horizon grows.
-        const projUpper = projection.map(p => p.band_upper ?? p.G);
-        const projLower = projection.map(p => p.band_lower ?? p.G);
+        const projUpper = projection.map(p => bgValueForDisplayNumber(p.band_upper ?? p.G, ui));
+        const projLower = projection.map(p => bgValueForDisplayNumber(p.band_lower ?? p.G, ui));
         // Confidence band colour: last-point U_scalar drives the tint.
         const finalU = projection.at(-1)?.U_scalar ?? 1;
         const bandAlpha = Math.min(0.18, 0.06 + (finalU - 1) * 0.06);
-        const bandColor = finalU < 1.4 ? `rgba(0,212,255,${bandAlpha})`
-          : finalU < 1.8 ? `rgba(251,191,36,${bandAlpha})`
-            : `rgba(255,107,107,${bandAlpha})`;
+        const bandColor = finalU < 1.4 ? colorWithAlpha(colors.accent, bandAlpha, '#00d4ff')
+          : finalU < 1.8 ? colorWithAlpha(colors.warning, bandAlpha, '#fbbf24')
+            : colorWithAlpha(colors.danger, bandAlpha, '#ff6b6b');
 
         inst.current = new Chart(ref.current.getContext('2d'), {
           data: {
@@ -5549,10 +5747,10 @@
               {
                 type: 'line', label: 'BG history',
                 data: [...histBG, ...new Array(projection.length).fill(null)],
-                borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,.05)', borderWidth: 2,
+                borderColor: colors.accent, backgroundColor: colorWithAlpha(colors.accent, 0.05, '#00d4ff'), borderWidth: 2,
                 pointRadius: 4, tension: .35, fill: true, yAxisID: 'yBG',
                 pointBackgroundColor: hist.map(l => bgColor(l.bloodSugar)),
-                pointBorderColor: '#0a0e1a', pointBorderWidth: 2
+                pointBorderColor: colors.bg, pointBorderWidth: 2
               },
 
               // -- Upper CI band (fills down to the lower band dataset below it) --
@@ -5574,7 +5772,7 @@
               {
                 type: 'line', label: 'BG projection',
                 data: [...bridgePad, ...projBG],
-                borderColor: 'rgba(0,212,255,.7)', backgroundColor: 'transparent',
+                borderColor: colorWithAlpha(colors.accent, 0.7, '#00d4ff'), backgroundColor: 'transparent',
                 borderWidth: 1.5, borderDash: [6, 4], pointRadius: 3,
                 pointBackgroundColor: projection.map(p => bgColor(p.G)),
                 tension: .3, fill: false, yAxisID: 'yBG'
@@ -5583,13 +5781,13 @@
               {
                 type: 'bar', label: 'Insulin (u)',
                 data: [...hist.map(l => l.insulinDose || null), ...new Array(projection.length).fill(null)],
-                backgroundColor: 'rgba(167,139,250,.45)', borderColor: '#a78bfa', borderWidth: 1, yAxisID: 'yIns'
+                backgroundColor: colorWithAlpha(colors.purple, 0.45, '#a78bfa'), borderColor: colors.purple, borderWidth: 1, yAxisID: 'yIns'
               },
               {
                 type: 'line', label: 'Sensitivity %',
                 data: [...hist.map(l => l.seff_mult != null ? Math.round(l.seff_mult * 100) : null),
                 ...new Array(projection.length).fill(null)],
-                borderColor: '#fb923c', backgroundColor: 'transparent', borderWidth: 1.5,
+                borderColor: colors.orange, backgroundColor: 'transparent', borderWidth: 1.5,
                 borderDash: [4, 3], pointRadius: 2, tension: .3, yAxisID: 'yPct'
               },
             ],
@@ -5600,30 +5798,30 @@
             plugins: {
               legend: {
                 labels: {
-                  color: '#64748b', font: { family: 'Share Tech Mono', size: 10 }, boxWidth: 10,
+                  color: colors.muted, font: { family: 'Share Tech Mono', size: 10 }, boxWidth: 10,
                   filter: item => !item.text.includes('CI')
                 }
               },
               tooltip: {
-                backgroundColor: '#111827', borderColor: '#1e2d45', borderWidth: 1,
-                titleColor: '#e2e8f0', bodyColor: '#94a3b8', titleFont: { family: 'Share Tech Mono' },
+                backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1,
+                titleColor: colors.text, bodyColor: colors.muted, titleFont: { family: 'Share Tech Mono' },
                 filter: item => item.dataset.label !== 'Upper 90% CI' && item.dataset.label !== 'Lower 90% CI'
               },
             },
             scales: {
-              x: { ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 }, maxRotation: 45 }, grid: { color: '#1e2d45' } },
+              x: { ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 }, maxRotation: 45 }, grid: { color: colorWithAlpha(colors.border, 0.35, '#1e2d45') } },
               yBG: {
-                position: 'left', ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } }, grid: { color: '#1e2d45' },
-                title: { display: true, text: bgUnitLabel(ui), color: '#00d4ff', font: { size: 9 } }
+                position: 'left', ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 }, callback: v => formatChartTick(v, ui) }, grid: { color: colorWithAlpha(colors.border, 0.35, '#1e2d45') },
+                title: { display: true, text: glucoseAxisTitle(ui), color: colors.accent, font: { size: 9 } }
               },
               yIns: {
-                position: 'right', ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } },
-                grid: { drawOnChartArea: false }, title: { display: true, text: 'Units', color: '#a78bfa', font: { size: 9 } }
+                position: 'right', ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 } },
+                grid: { drawOnChartArea: false }, title: { display: true, text: 'Units', color: colors.purple, font: { size: 9 } }
               },
               yPct: {
                 position: 'right', min: 0, max: 180,
-                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 }, callback: v => v + '%' },
-                grid: { drawOnChartArea: false }, title: { display: true, text: 'Sensitivity%', color: '#fb923c', font: { size: 9 } }
+                ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 }, callback: v => v + '%' },
+                grid: { drawOnChartArea: false }, title: { display: true, text: 'Sensitivity%', color: colors.orange, font: { size: 9 } }
               },
             },
           },
@@ -5636,7 +5834,38 @@
       return <div className="chwrap"><canvas ref={ref} /></div>;
     }
 
-    // -- E5a. Chart 1 · Meal Carb Absorption Rate ----------------------------------
+    // -- Canonical chart-source contracts ------------------------------------------
+    // Ownership model:
+    //   Chart 1 = meal contribution source
+    //   Chart 2 = insulin contribution source
+    //   Chart 3 = modifier source
+    //   Chart 4 = actual glucose source
+    //   Chart 5 = aggregator only
+    //
+    // Canonical contracts:
+    //   Chart 1 -> [{ t, value, carbRate?, fpRate?, meta? }]
+    //   Chart 2 -> [{ t, value, qp?, meta? }]
+    //   Chart 3 -> [{ t, k_abs_mult, seff_mult, hepatic_factor, U_scalar }]
+    //   Chart 4 -> fusedSeries = [{ t, glucose, type, iso? }]
+    //           -> rawSeries = { cgm: [{ x, y }], fingerstick: [{ x, y }], manual: [{ x, y }] }
+    //
+    // Non-negotiable aggregator rule:
+    //   Chart 5 must consume prepared Chart 1-4 outputs only.
+    //   It must not call raw builders, fall back to stubs, or scan logs directly.
+    //   Raw glucose extraction belongs to the Chart 4 source layer, not the aggregator.
+    //
+    // Current source-of-truth functions:
+    //   Meal series source = c1_buildMealSeries(...), currently derived from c5_buildMealTimeline(...).
+    //   Insulin-effect series source = c2_buildInsulinSeries(projection, profile, sim, liveMod).
+    //   Modifier series source = c3_buildModifierSeries(logs, profile, sim, liveMod, nowMs).
+    //   Actual glucose fused source = c4_buildFusedSeries(logs).
+    //   Actual glucose raw scatter source = c4_extractRaw(logs).
+    //
+    // Immediate refactor goal:
+    //   Keep chart data derivation at the app/source layer and chart rendering in components.
+    //   Prepared series are created upstream, then passed into charts as props.
+
+    // -- E5a. Chart 1 · Meal contribution source ----------------------------------
     // Derives the carb-to-blood glucose contribution rate from logged meals using the
     // same two-compartment gastric emptying model as simulateProjection. No new math.
 
@@ -5686,6 +5915,7 @@
     }
 
     function c5_buildMealTimeline(logs, sim, startMs, endMs, dtMin = 5) {
+      const dtMs = dtMin * 60000;
       const mealLogs = (logs || [])
         .filter(l => {
           const tMs = new Date(l.timestamp).getTime();
@@ -5718,19 +5948,30 @@
         });
 
       if (!mealLogs.length) {
+        const totalRate = [];
+        const carbRate = [];
+        const fpRate = [];
+        const D_g = [];
+        const R_c = [];
+        for (let tMs = startMs; tMs <= endMs; tMs += dtMs) {
+          totalRate.push({ x: tMs, y: 0 });
+          carbRate.push({ x: tMs, y: 0 });
+          fpRate.push({ x: tMs, y: 0 });
+          D_g.push({ x: tMs, y: 0 });
+          R_c.push({ x: tMs, y: 0 });
+        }
         return {
-          totalRate: [],
-          carbRate: [],
-          fpRate: [],
-          D_g: [],
-          R_c: [],
+          totalRate,
+          carbRate,
+          fpRate,
+          D_g,
+          R_c,
           inputPoints: [],
         };
       }
 
       const firstMealMs = mealLogs[0].tMs;
       const simStartMs = Math.min(startMs, firstMealMs);
-      const dtMs = dtMin * 60000;
 
       const totalRate = [];
       const carbRate = [];
@@ -5778,13 +6019,34 @@
       return { totalRate, carbRate, fpRate, D_g, R_c, inputPoints };
     }
 
-    function c1_buildMealSeries(logs, profile, sim) {
-      const now = Date.now();
-      const timeline = c5_buildMealTimeline(logs, sim, now - 4 * 3600000, now + 2 * 3600000, 5);
-      return timeline.totalRate.map(pt => ({ t: pt.x, value: pt.y }));
+    // Canonical Chart 1 source.
+    // This is the current source of truth for meal contribution series; it wraps the
+    // shared meal timeline builder so meal derivation stays outside the charts.
+    function c1_buildMealSeries(logs, profile, sim, window = {}) {
+      const now = window.nowMs ?? Date.now();
+      const startMs = window.startMs ?? (now - 8 * 3600000);
+      const endMs = window.endMs ?? (now + 4 * 3600000);
+      const dtMin = window.dtMin ?? 5;
+      const timeline = c5_buildMealTimeline(logs, sim, startMs, endMs, dtMin);
+      const inputsByTime = new Map();
+      timeline.inputPoints.forEach(pt => {
+        if (!inputsByTime.has(pt.x)) inputsByTime.set(pt.x, []);
+        inputsByTime.get(pt.x).push(pt);
+      });
+      return timeline.totalRate.map((pt, idx) => ({
+        t: pt.x,
+        value: safeNum(pt.y, 0),
+        carbRate: safeNum(timeline.carbRate[idx]?.y, 0),
+        fpRate: safeNum(timeline.fpRate[idx]?.y, 0),
+        meta: {
+          D_g: safeNum(timeline.D_g[idx]?.y, 0),
+          R_c: safeNum(timeline.R_c[idx]?.y, 0),
+          mealInputs: inputsByTime.get(pt.x) || [],
+        },
+      }));
     }
 
-    // -- E5_carb. Chart 5 · Carb Model (carb-model.js port) -----------------------
+    // -- E5_carb. Chart 1 · Meal model view ---------------------------------------
 
     function updateCarbModel(dtMinutes, state, params, factors) {
       const compositionFactorRaw = 1.0
@@ -5822,18 +6084,47 @@
       };
     }
 
-    function Chart5CarbModelChart({ logs, sim }) {
+    function Chart1MealContributionChart({ series, ui }) {
       const canvasRef = React.useRef(null);
       const chartRef = React.useRef(null);
       const timeline = useMemo(() => {
-        const now = Date.now();
-        return c5_buildMealTimeline(logs, sim, now - 8 * 3600000, now + 4 * 3600000, 5);
-      }, [logs, sim]);
+        const inputPoints = [];
+        const totalRate = [];
+        const carbRate = [];
+        const fpRate = [];
+        const D_g = [];
+        const R_c = [];
+        (series || []).forEach(pt => {
+          const t = Number(pt?.t);
+          if (!isFinite(t)) return;
+          totalRate.push({ x: t, y: safeNum(pt.value, 0) });
+          carbRate.push({ x: t, y: safeNum(pt.carbRate, 0) });
+          fpRate.push({ x: t, y: safeNum(pt.fpRate, 0) });
+          D_g.push({ x: t, y: safeNum(pt.meta?.D_g, 0) });
+          R_c.push({ x: t, y: safeNum(pt.meta?.R_c, 0) });
+          const mealInputs = Array.isArray(pt.meta?.mealInputs) ? pt.meta.mealInputs : [];
+          mealInputs.forEach(input => inputPoints.push(input));
+        });
+        return { totalRate, carbRate, fpRate, D_g, R_c, inputPoints };
+      }, [series]);
       const hasMealInputs = timeline.inputPoints.length > 0;
 
       React.useEffect(() => {
         if (!canvasRef.current || !hasMealInputs) return;
 
+        const colors = getChartTheme(ui);
+        const totalRate = timeline.totalRate.map(pt => ({ ...pt, y: glucoseRateForDisplayNumber(pt.y, ui) }));
+        const carbRate = timeline.carbRate.map(pt => ({ ...pt, y: glucoseRateForDisplayNumber(pt.y, ui) }));
+        const fpRate = timeline.fpRate.map(pt => ({ ...pt, y: glucoseRateForDisplayNumber(pt.y, ui) }));
+        const rateBounds = computeNumericAxisBounds(
+          [...totalRate, ...carbRate, ...fpRate].map(pt => pt.y),
+          {
+            floor: 0,
+            step: isMmol(ui) ? 0.1 : 0.5,
+            pad: isMmol(ui) ? 0.05 : 0.2,
+            minSpan: isMmol(ui) ? 0.5 : 1,
+          }
+        );
         const nowMs = Date.now();
         const nowPlugin = {
           id: 'nowLine_c5',
@@ -5843,12 +6134,12 @@
             const ctx2 = chart.ctx;
             const { top, bottom } = chart.chartArea;
             ctx2.save();
-            ctx2.strokeStyle = 'rgba(255,200,0,0.7)';
+            ctx2.strokeStyle = colorWithAlpha(colors.warning, 0.7, '#fbbf24');
             ctx2.lineWidth = 1.5;
             ctx2.setLineDash([4, 4]);
             ctx2.beginPath(); ctx2.moveTo(x, top); ctx2.lineTo(x, bottom); ctx2.stroke();
-            ctx2.fillStyle = 'rgba(255,200,0,0.9)';
-            ctx2.font = '10px sans-serif';
+            ctx2.fillStyle = colorWithAlpha(colors.warning, 0.9, '#fbbf24');
+            ctx2.font = '10px "Share Tech Mono", monospace';
             ctx2.fillText('Now', x + 4, top + 14);
             ctx2.restore();
           },
@@ -5866,8 +6157,8 @@
                 type: 'scatter',
                 label: 'Logged Meal Inputs',
                 data: timeline.inputPoints,
-                backgroundColor: 'rgba(255,255,255,0.95)',
-                borderColor: '#0f172a',
+                backgroundColor: colorWithAlpha(colors.text, 0.95, '#ffffff'),
+                borderColor: colors.bg,
                 borderWidth: 2,
                 pointRadius: 5,
                 pointHoverRadius: 7,
@@ -5875,9 +6166,9 @@
               },
               {
                 label: 'Fused Meal Response',
-                data: timeline.totalRate,
-                borderColor: 'rgba(255,255,255,0.85)',
-                backgroundColor: 'rgba(255,255,255,0.08)',
+                data: totalRate,
+                borderColor: colorWithAlpha(colors.text, 0.85, '#ffffff'),
+                backgroundColor: colorWithAlpha(colors.text, 0.08, '#ffffff'),
                 borderWidth: 2,
                 fill: true,
                 tension: 0.3,
@@ -5886,9 +6177,9 @@
               },
               {
                 label: 'Carb Rate',
-                data: timeline.carbRate,
-                borderColor: 'rgba(80,220,120,0.9)',
-                backgroundColor: 'rgba(80,220,120,0.10)',
+                data: carbRate,
+                borderColor: colorWithAlpha(colors.success, 0.9, '#4ade80'),
+                backgroundColor: colorWithAlpha(colors.success, 0.10, '#4ade80'),
                 borderWidth: 1.5,
                 fill: true,
                 tension: 0.3,
@@ -5897,9 +6188,9 @@
               },
               {
                 label: 'Fat+Protein Rate',
-                data: timeline.fpRate,
-                borderColor: 'rgba(250,180,60,0.9)',
-                backgroundColor: 'rgba(250,180,60,0.08)',
+                data: fpRate,
+                borderColor: colorWithAlpha(colors.orange, 0.9, '#fb923c'),
+                backgroundColor: colorWithAlpha(colors.orange, 0.08, '#fb923c'),
                 borderWidth: 1.5,
                 fill: true,
                 tension: 0.3,
@@ -5909,7 +6200,7 @@
               {
                 label: 'Stomach (D_g)',
                 data: timeline.D_g,
-                borderColor: 'rgba(80,160,255,0.8)',
+                borderColor: colorWithAlpha(colors.accent, 0.8, '#00d4ff'),
                 borderWidth: 1.5,
                 borderDash: [5, 3],
                 fill: false,
@@ -5920,7 +6211,7 @@
               {
                 label: 'Gut (R_c)',
                 data: timeline.R_c,
-                borderColor: 'rgba(200,100,255,0.8)',
+                borderColor: colorWithAlpha(colors.purple, 0.8, '#a78bfa'),
                 borderWidth: 1.5,
                 borderDash: [5, 3],
                 fill: false,
@@ -5937,9 +6228,15 @@
             interaction: { mode: 'index', intersect: false },
             plugins: {
               legend: {
-                labels: { color: 'rgba(255,255,255,0.7)', font: { size: 11 } },
+                labels: { color: colors.muted, font: { family: 'Share Tech Mono', size: 10 } },
               },
               tooltip: {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                borderWidth: 1,
+                titleColor: colors.text,
+                bodyColor: colors.muted,
+                titleFont: { family: 'Share Tech Mono' },
                 callbacks: {
                   title: items => new Date(items[0].parsed.x).toLocaleTimeString(),
                   label: item => {
@@ -5951,8 +6248,11 @@
                       if (raw.protein_g > 0) parts.push(`${raw.protein_g}g protein`);
                       return `Logged meal: ${parts.join(' · ') || `${raw.total_g || 0}g total`}`;
                     }
-                    const v = item.parsed.y.toFixed(2);
-                    return `${item.dataset.label}: ${v}`;
+                    const v = item.parsed.y;
+                    if (!Number.isFinite(v)) return item.dataset.label;
+                    if (item.dataset.yAxisID === 'yRate')
+                      return `${item.dataset.label}: ${formatRateTick(v, ui)} ${glucoseRateUnitLabel(ui)}`;
+                    return `${item.dataset.label}: ${Number(v).toFixed(1).replace(/\.0$/, '')} g`;
                   },
                 },
               },
@@ -5961,20 +6261,19 @@
               x: {
                 type: 'time',
                 time: { unit: 'hour', displayFormats: { hour: 'h:mm a' } },
-                ticks: { color: 'rgba(255,255,255,0.5)', maxTicksLimit: 8 },
-                grid: { color: 'rgba(255,255,255,0.06)' },
+                ticks: { color: colors.faint, maxTicksLimit: 8, font: { family: 'Share Tech Mono', size: 9 } },
+                grid: { color: colorWithAlpha(colors.border, 0.35, '#1e2d45') },
               },
               yRate: {
-                type: 'linear', position: 'left',
-                title: { display: true, text: 'Rate (mg/dL·min⁻¹)', color: 'rgba(255,255,255,0.5)', font: { size: 11 } },
-                ticks: { color: 'rgba(255,255,255,0.5)' },
-                grid: { color: 'rgba(255,255,255,0.06)' },
-                min: 0,
+                type: 'linear', position: 'left', min: 0, max: rateBounds.max,
+                title: { display: true, text: glucoseRateAxisTitle(ui), color: colors.muted, font: { size: 11 } },
+                ticks: { color: colors.faint, callback: v => formatRateTick(v, ui), font: { family: 'Share Tech Mono', size: 9 } },
+                grid: { color: colorWithAlpha(colors.border, 0.35, '#1e2d45') },
               },
               yComp: {
                 type: 'linear', position: 'right',
-                title: { display: true, text: 'Compartment (g)', color: 'rgba(255,255,255,0.5)', font: { size: 11 } },
-                ticks: { color: 'rgba(255,255,255,0.5)' },
+                title: { display: true, text: 'Compartment (g)', color: colors.muted, font: { size: 11 } },
+                ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 } },
                 grid: { drawOnChartArea: false },
                 min: 0,
               },
@@ -5985,7 +6284,7 @@
         return () => {
           if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
         };
-      }, [hasMealInputs, timeline]);
+      }, [hasMealInputs, timeline, ui]);
 
       if (!hasMealInputs)
         return <div className="es"><div className="ei">🍽️</div>Log meals to see input points and fused meal response</div>;
@@ -5998,7 +6297,8 @@
     }
 
     // -- E5b. Chart 4 · Actual Glucose Measurements --------------------------------
-    // Pure fusion logic — no React, maps app logs to fused glucose series.
+    // Chart 4 owns raw glucose extraction and fused glucose reconstruction.
+    // The aggregator consumes these prepared outputs; it never rebuilds them.
 
     // Priority: fingerstick > cgm > bloodSugar (manual/unspecified)
     function c4_buildFusedSeries(logs, minBG = 20, maxBG = 600) {
@@ -6008,6 +6308,8 @@
       const groups = new Map();
       for (const log of logs) {
         if (!log || !log.timestamp) continue;
+        const tMs = new Date(log.timestamp).getTime();
+        if (!Number.isFinite(tMs)) continue;
         const ts = log.timestamp;
         if (!groups.has(ts)) groups.set(ts, []);
         groups.get(ts).push(log);
@@ -6018,6 +6320,8 @@
 
       const series = [];
       for (const ts of sorted) {
+        const tMs = new Date(ts).getTime();
+        if (!Number.isFinite(tMs)) continue;
         let selected = null, type = 'manual';
         for (const log of groups.get(ts)) {
           const fs = Number(log.fingerstick);
@@ -6028,7 +6332,7 @@
           if (selected === null && isFinite(bs) && bs >= minBG && bs <= maxBG) { selected = bs; type = 'manual'; }
         }
         if (selected !== null)
-          series.push({ t: new Date(ts).getTime(), glucose: selected, type, iso: ts });
+          series.push({ t: tMs, glucose: selected, type, iso: ts });
       }
       return series;
     }
@@ -6054,7 +6358,15 @@
       return { cgm, fingerstick, manual };
     }
 
-    function Chart4ActualGlucoseChart({ logs, ui }) {
+    // Canonical Chart 4 source bundle: fused line + raw scatter series.
+    function c4_buildActualGlucoseSource(logs, minBG = 20, maxBG = 600) {
+      return {
+        fusedSeries: c4_buildFusedSeries(logs, minBG, maxBG),
+        rawSeries: c4_extractRaw(logs, minBG, maxBG),
+      };
+    }
+
+    function Chart4ActualGlucoseChart({ fusedSeries, rawSeries, ui }) {
       const ref = useRef(null);
       const inst = useRef(null);
       const { useState: _useState } = React;
@@ -6062,14 +6374,22 @@
       const [showFingerstick, setShowFingerstick] = _useState(true);
       const [showManual, setShowManual] = _useState(true);
 
-      const fused = c4_buildFusedSeries(logs);
-      const raw = c4_extractRaw(logs);
-
       // Re-build chart when data changes
       useEffect(() => {
-        if (!ref.current || !fused.length) return;
+        if (!ref.current || !fusedSeries.length) return;
 
         if (inst.current) { inst.current.destroy(); inst.current = null; }
+        const colors = getChartTheme(ui);
+        const fusedDisplay = fusedSeries.map(p => ({ x: p.t, y: bgValueForDisplayNumber(p.glucose, ui) }));
+        const fingerstickDisplay = rawSeries.fingerstick.map(p => ({ ...p, y: bgValueForDisplayNumber(p.y, ui) }));
+        const cgmDisplay = rawSeries.cgm.map(p => ({ ...p, y: bgValueForDisplayNumber(p.y, ui) }));
+        const manualDisplay = rawSeries.manual.map(p => ({ ...p, y: bgValueForDisplayNumber(p.y, ui) }));
+        const bgBounds = computeBgAxisBounds([
+          ...fusedDisplay.map(p => p.y),
+          ...fingerstickDisplay.map(p => p.y),
+          ...cgmDisplay.map(p => p.y),
+          ...manualDisplay.map(p => p.y),
+        ], ui);
 
         inst.current = new Chart(ref.current.getContext('2d'), {
           data: {
@@ -6077,32 +6397,32 @@
               {
                 type: 'line',
                 label: 'Fused BG (priority order)',
-                data: fused.map(p => ({ x: p.t, y: p.glucose })),
-                borderColor: '#f59e0b', backgroundColor: 'transparent',
+                data: fusedDisplay,
+                borderColor: colors.orange, backgroundColor: 'transparent',
                 borderWidth: 2.5, pointRadius: 0, tension: 0.2, order: 1,
                 parsing: false,
               },
               {
                 type: 'scatter',
                 label: 'Fingerstick',
-                data: raw.fingerstick,
-                backgroundColor: '#ef4444', borderColor: '#fff',
+                data: fingerstickDisplay,
+                backgroundColor: colors.danger, borderColor: colors.surface,
                 borderWidth: 2, pointRadius: 7, pointHoverRadius: 9,
                 order: 2, parsing: false, hidden: !showFingerstick,
               },
               {
                 type: 'scatter',
                 label: 'CGM',
-                data: raw.cgm,
-                backgroundColor: '#3b82f6', borderColor: '#fff',
+                data: cgmDisplay,
+                backgroundColor: colors.info, borderColor: colors.surface,
                 borderWidth: 1, pointRadius: 5, pointHoverRadius: 7,
                 order: 3, parsing: false, hidden: !showCgm,
               },
               {
                 type: 'scatter',
                 label: 'Manual',
-                data: raw.manual,
-                backgroundColor: '#22c55e', borderColor: '#fff',
+                data: manualDisplay,
+                backgroundColor: colors.success, borderColor: colors.surface,
                 borderWidth: 1, pointRadius: 5, pointHoverRadius: 7,
                 order: 4, parsing: false, hidden: !showManual,
               },
@@ -6115,15 +6435,15 @@
             plugins: {
               legend: {
                 labels: {
-                  color: '#64748b', font: { family: 'Share Tech Mono', size: 10 }, boxWidth: 10,
+                  color: colors.muted, font: { family: 'Share Tech Mono', size: 10 }, boxWidth: 10,
                 },
               },
               tooltip: {
-                backgroundColor: '#111827', borderColor: '#1e2d45', borderWidth: 1,
-                titleColor: '#e2e8f0', bodyColor: '#94a3b8',
+                backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1,
+                titleColor: colors.text, bodyColor: colors.muted,
                 titleFont: { family: 'Share Tech Mono' },
                 callbacks: {
-                  label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} mg/dL`,
+                  label: ctx => `${ctx.dataset.label}: ${formatChartTick(ctx.parsed.y, ui)} ${bgUnitLabel(ui)}`,
                 },
               },
             },
@@ -6131,21 +6451,21 @@
               x: {
                 type: 'time',
                 time: { unit: 'hour', displayFormats: { hour: 'HH:mm' }, tooltipFormat: 'yyyy-MM-dd HH:mm' },
-                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 }, maxRotation: 45 },
-                grid: { color: '#1e2d45' },
+                ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 }, maxRotation: 45 },
+                grid: { color: colorWithAlpha(colors.border, 0.35, '#1e2d45') },
               },
               y: {
-                min: 40, max: 400,
-                title: { display: true, text: 'Glucose (mg/dL)', color: '#f59e0b', font: { size: 9 } },
-                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } },
-                grid: { color: '#1e2d45' },
+                min: bgBounds.min, max: bgBounds.max,
+                title: { display: true, text: glucoseAxisTitle(ui), color: colors.orange, font: { size: 9 } },
+                ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 }, callback: v => formatChartTick(v, ui) },
+                grid: { color: colorWithAlpha(colors.border, 0.35, '#1e2d45') },
               },
             },
           },
         });
 
         return () => { if (inst.current) { inst.current.destroy(); inst.current = null; } };
-      }, [logs, ui]);
+      }, [fusedSeries, rawSeries, ui]);
 
       // Toggle visibility without rebuilding
       useEffect(() => {
@@ -6157,9 +6477,9 @@
         inst.current.update('none');
       }, [showCgm, showFingerstick, showManual]);
 
-      const hasBg = fused.length > 0;
+      const hasBg = fusedSeries.length > 0;
       const stats = hasBg
-        ? `${fused.length} fused · ${raw.fingerstick.length} fingerstick · ${raw.cgm.length} CGM · ${raw.manual.length} manual`
+        ? `${fusedSeries.length} fused · ${rawSeries.fingerstick.length} fingerstick · ${rawSeries.cgm.length} CGM · ${rawSeries.manual.length} manual`
         : null;
 
       return (<>
@@ -6196,16 +6516,17 @@
     // historical log point using the app's own computeModifiers + computeStateVars.
     // No new math — pure time-series reconstruction from real logged data.
 
-    // Builds a series compatible with Chart 5's c5_sampleSeries format:
-    // [{ t: ms, hepatic_factor, U_scalar }] — replaces the c5_gen3 stub.
-    function c3_buildModifierSeries(logs, profile, sim) {
+    // Canonical Chart 3 source contract:
+    //   [{ t, k_abs_mult, seff_mult, hepatic_factor, U_scalar }]
+    function c3_buildModifierSeries(logs, profile, sim, liveMod = null, nowMs = Date.now()) {
       const sorted = [...logs]
-        .filter(l => l.bloodSugar != null)
+        .filter(l => l.bloodSugar != null && Number.isFinite(new Date(l.timestamp).getTime()))
         .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-      if (!sorted.length) return [];
-      return sorted.map((log, i) => {
+      const series = sorted.map((log, i) => {
+        const tMs = new Date(log.timestamp).getTime();
+        const tDate = new Date(tMs);
         const svAt = computeStateVars(sorted.slice(0, i + 1), profile, sim);
-        const tHr = new Date(log.timestamp).getHours() + new Date(log.timestamp).getMinutes() / 60;
+        const tHr = tDate.getHours() + tDate.getMinutes() / 60;
         const inpAt = {
           bmi: profile.bmi, hr: log.hr || profile.HR_ref,
           pa: log.pa || 0, sleep: log.sleep || 0, sleepQ: log.sleepQ ?? 4,
@@ -6221,59 +6542,45 @@
         };
         const mod = computeModifiers(inpAt, svAt, profile, sim);
         return {
-          t: new Date(log.timestamp).getTime(),
+          t: tMs,
+          k_abs_mult: mod.kabs_mult ?? 1,
+          seff_mult: mod.seff_mult ?? 1,
           hepatic_factor: mod.hepaticOutputFactor ?? 1,
           U_scalar: mod.U_scalar ?? 1,
+          meta: { current: false },
         };
       });
+      if (liveMod) {
+        series.push({
+          t: nowMs,
+          k_abs_mult: liveMod.kabs_mult ?? 1,
+          seff_mult: liveMod.seff_mult ?? 1,
+          hepatic_factor: liveMod.hepaticOutputFactor ?? 1,
+          U_scalar: liveMod.U_scalar ?? 1,
+          meta: { current: true },
+        });
+      }
+      return series;
     }
 
-    function Chart3ModifierChart({ logs, profile, sim, liveMod, ui }) {
+    function Chart3ModifierChart({ series, ui }) {
       const ref = useRef(null);
       const inst = useRef(null);
 
       useEffect(() => {
         if (!ref.current) return;
+        const colors = getChartTheme(ui);
 
-        const sorted = [...logs]
-          .filter(l => l.bloodSugar != null)
-          .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-          .slice(-40);
-
+        const sorted = (series || []).slice(-41);
         const labels = [], kAbsVals = [], sEffVals = [], hepaticVals = [], uVals = [];
 
-        sorted.forEach((log, i) => {
-          const svAt = computeStateVars(sorted.slice(0, i + 1), profile, sim);
-          const tHr = new Date(log.timestamp).getHours() + new Date(log.timestamp).getMinutes() / 60;
-          const inpAt = {
-            bmi: profile.bmi, hr: log.hr || profile.HR_ref,
-            pa: log.pa || 0, sleep: log.sleep || 0, sleepQ: log.sleepQ ?? 4,
-            stress: log.stress || 0, illness: log.illness || 0,
-            hydration: log.hydration ?? 1, travelDay: log.travelDay || 0,
-            alcoholLevel: log.alcoholLevel || 0, stimulantLevel: log.stimulantLevel || 0,
-            depressantLevel: log.depressantLevel || 0, nicotineLevel: log.nicotineLevel || 0,
-            thcLevel: log.thcLevel || 0, dawnEffect: 0,
-            bg: log.bloodSugar, timeHour: tHr,
-            carbs: log.carbs || 0, fat_g: log.fat_g || 0,
-            protein_g: log.protein_g || 0, mealType: log.mealType || 0,
-            fiberClass: log.fiberClass || 0,
-          };
-          const mod = computeModifiers(inpAt, svAt, profile, sim);
-          labels.push(fmtT(log.timestamp));
-          kAbsVals.push(+(mod.kabs_mult).toFixed(3));
-          sEffVals.push(+(mod.seff_mult).toFixed(3));
-          hepaticVals.push(+(mod.hepaticOutputFactor ?? 1).toFixed(3));
-          uVals.push(+(mod.U_scalar ?? 1).toFixed(3));
+        sorted.forEach(pt => {
+          labels.push(pt.meta?.current ? 'Now ★' : fmtT(pt.t));
+          kAbsVals.push(+safeNum(pt.k_abs_mult, 1).toFixed(3));
+          sEffVals.push(+safeNum(pt.seff_mult, 1).toFixed(3));
+          hepaticVals.push(+safeNum(pt.hepatic_factor, 1).toFixed(3));
+          uVals.push(+safeNum(pt.U_scalar, 1).toFixed(3));
         });
-
-        // Append current live point.
-        if (liveMod) {
-          labels.push('Now ★');
-          kAbsVals.push(+(liveMod.kabs_mult).toFixed(3));
-          sEffVals.push(+(liveMod.seff_mult).toFixed(3));
-          hepaticVals.push(+(liveMod.hepaticOutputFactor ?? 1).toFixed(3));
-          uVals.push(+(liveMod.U_scalar ?? 1).toFixed(3));
-        }
 
         if (!labels.length) return;
         if (inst.current) { inst.current.destroy(); inst.current = null; }
@@ -6285,22 +6592,22 @@
             datasets: [
               {
                 label: 'k_abs (absorption)', data: kAbsVals,
-                borderColor: '#38bdf8', backgroundColor: 'transparent',
+                borderColor: colors.accent, backgroundColor: 'transparent',
                 borderWidth: 2, pointRadius: 3, tension: 0.3, yAxisID: 'yMod',
               },
               {
                 label: 'S_eff (sensitivity)', data: sEffVals,
-                borderColor: '#c084fc', backgroundColor: 'transparent',
+                borderColor: colors.purple, backgroundColor: 'transparent',
                 borderWidth: 2, pointRadius: 3, tension: 0.3, yAxisID: 'yMod',
               },
               {
                 label: 'Hepatic factor', data: hepaticVals,
-                borderColor: '#fbbf24', backgroundColor: 'transparent',
+                borderColor: colors.warning, backgroundColor: 'transparent',
                 borderWidth: 2, pointRadius: 3, tension: 0.3, yAxisID: 'yMod',
               },
               {
                 label: 'U scalar (uncertainty)', data: uVals,
-                borderColor: '#fb7185', backgroundColor: 'transparent',
+                borderColor: colors.danger, backgroundColor: 'transparent',
                 borderWidth: 2, pointRadius: 3, tension: 0.3, yAxisID: 'yU',
               },
             ],
@@ -6311,32 +6618,32 @@
             plugins: {
               legend: {
                 labels: {
-                  color: '#64748b', font: { family: 'Share Tech Mono', size: 10 },
+                  color: colors.muted, font: { family: 'Share Tech Mono', size: 10 },
                   boxWidth: 10, usePointStyle: true,
                 },
               },
               tooltip: {
-                backgroundColor: '#111827', borderColor: '#1e2d45', borderWidth: 1,
-                titleColor: '#e2e8f0', bodyColor: '#94a3b8',
+                backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1,
+                titleColor: colors.text, bodyColor: colors.muted,
                 titleFont: { family: 'Share Tech Mono' },
                 callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(3)}` },
               },
             },
             scales: {
               x: {
-                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 }, maxRotation: 45 },
-                grid: { color: '#1e2d45' },
+                ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 }, maxRotation: 45 },
+                grid: { color: colorWithAlpha(colors.border, 0.35, '#1e2d45') },
               },
               yMod: {
                 type: 'linear', position: 'left', min: 0, max: 2,
-                title: { display: true, text: '× baseline', color: '#64748b', font: { size: 9 } },
-                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } },
-                grid: { color: '#1e2d45' },
+                title: { display: true, text: '× baseline', color: colors.muted, font: { size: 9 } },
+                ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 } },
+                grid: { color: colorWithAlpha(colors.border, 0.35, '#1e2d45') },
               },
               yU: {
                 type: 'linear', position: 'right',
-                title: { display: true, text: 'U scalar', color: '#fb7185', font: { size: 9 } },
-                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } },
+                title: { display: true, text: 'U scalar', color: colors.danger, font: { size: 9 } },
+                ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 } },
                 grid: { drawOnChartArea: false },
               },
             },
@@ -6344,10 +6651,10 @@
         });
 
         return () => { if (inst.current) { inst.current.destroy(); inst.current = null; } };
-      }, [logs, profile, sim, liveMod]);
+      }, [series, ui]);
 
-      if (!logs.filter(l => l.bloodSugar != null).length)
-        return <div className="es"><div className="ei">🔧</div>Log readings to see modifier history</div>;
+      if (!(series || []).length)
+        return <div className="es"><div className="ei">🔧</div>No modifier source available</div>;
       return <div className="chwrap" style={{ height: '300px' }}><canvas ref={ref} /></div>;
     }
 
@@ -6355,34 +6662,38 @@
     // Uses the app's existing projection (already computed via simulateProjection) plus
     // the log history. No PK re-implementation — all math already runs upstream.
 
-    // Builds a series for Chart 5's ch2 slot: insulin lowering rate in mg/dL/min
-    // for the forward projection window. Values are negative (glucose goes down).
-    function c2_buildInsulinSeries(projection, profile, sim, liveMod) {
+    // Canonical Chart 2 source:
+    // builds the prepared insulin-effect series used by both the insulin chart and
+    // the aggregator. Values are mg/dL/min and negative when glucose is being lowered.
+    function c2_buildInsulinSeries(projection, profile, sim, liveMod, nowMs = Date.now()) {
       if (!Array.isArray(projection) || !projection.length) return [];
       const kS = profile.corrFactor * kClearPerHour(sim); // mg/dL/U/hr
       const seff_mult = liveMod?.seff_mult ?? 1;
-      const now = Date.now();
       return projection
         .filter(pt => pt.Qp != null)
         .map(pt => ({
-          t: now + pt.t * 3_600_000,                               // absolute ms
+          t: nowMs + pt.t * 3_600_000,                            // absolute ms
           value: -(kS * seff_mult * pt.Qp) / 60,                  // mg/dL/min, negative
+          qp: pt.Qp ?? 0,
+          meta: { glucose: pt.G ?? null },
         }));
     }
 
-    function Chart2InsulinEffectChart({ logs, projection, pkState, profile, sim, liveMod, ui }) {
+    function Chart2InsulinEffectChart({ logs, projection, series, profile, sim, ui }) {
       const ref = useRef(null);
       const inst = useRef(null);
 
       useEffect(() => {
         if (!ref.current) return;
+        const colors = getChartTheme(ui);
 
         const hist = [...logs]
           .filter(l => l.bloodSugar != null)
           .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
           .slice(-30);
 
-        const now = new Date();
+        const projectionBaseMs = series?.[0]?.t ?? Date.now();
+        const now = new Date(projectionBaseMs);
         const histLabels = hist.map(l => fmtT(l.timestamp));
         const projLabels = projection.map(pt => {
           const d = new Date(now.getTime() + pt.t * 3_600_000);
@@ -6390,22 +6701,30 @@
         });
         const allLabels = [...histLabels, 'Now', ...projLabels.slice(1)];
 
-        const histBG = hist.map(l => l.bloodSugar);
-        const projBG = projection.map(p => p.G);
+        const histBG = hist.map(l => bgValueForDisplayNumber(l.bloodSugar, ui));
+        const projBG = projection.map(p => bgValueForDisplayNumber(p.G, ui));
         const bridgePad = hist.length > 0
-          ? [...new Array(hist.length - 1).fill(null), hist.at(-1)?.bloodSugar ?? null]
+          ? [...new Array(hist.length - 1).fill(null), bgValueForDisplayNumber(hist.at(-1)?.bloodSugar ?? null, ui)]
           : [];
         const nullPad = new Array(hist.length).fill(null);
 
-        // Glucose lowering rate at each projection point: -(kS × seff_mult × Qp) / 60
-        const kS = profile.corrFactor * kClearPerHour(sim);
-        const seff_mult = liveMod?.seff_mult ?? 1;
-        const projRate = projection.map(pt =>
-          pt.Qp != null ? -(kS * seff_mult * pt.Qp) / 60 : null
-        );
-
-        // IOB trend line: Qp over projection horizon
-        const projQp = projection.map(pt => pt.Qp ?? null);
+        const seriesByTime = new Map((series || []).map(pt => [pt.t, pt]));
+        const projRate = projection.map(pt => {
+          const absT = projectionBaseMs + pt.t * 3_600_000;
+          return glucoseRateForDisplayNumber(seriesByTime.get(absT)?.value ?? null, ui);
+        });
+        const projQp = projection.map(pt => {
+          const absT = projectionBaseMs + pt.t * 3_600_000;
+          return seriesByTime.get(absT)?.qp ?? pt.Qp ?? null;
+        });
+        const rateBounds = computeNumericAxisBounds(projRate, {
+          floor: glucoseRateForDisplayNumber(-3, ui),
+          ceil: glucoseRateForDisplayNumber(0.5, ui),
+          step: isMmol(ui) ? 0.05 : 0.5,
+          pad: glucoseRateForDisplayNumber(0.15, ui) ?? 0,
+          includeZero: true,
+          minSpan: isMmol(ui) ? 0.2 : 1,
+        });
 
         if (inst.current) { inst.current.destroy(); inst.current = null; }
 
@@ -6417,16 +6736,16 @@
               {
                 type: 'line', label: 'BG history',
                 data: [...histBG, ...new Array(projection.length).fill(null)],
-                borderColor: '#e2e8f0', backgroundColor: 'rgba(226,232,240,.04)',
+                borderColor: colors.text, backgroundColor: colorWithAlpha(colors.text, 0.04, '#e2e8f0'),
                 borderWidth: 2, pointRadius: 3, tension: 0.35, fill: true, yAxisID: 'yBG',
                 pointBackgroundColor: hist.map(l => bgColor(l.bloodSugar)),
-                pointBorderColor: '#0a0e1a', pointBorderWidth: 1,
+                pointBorderColor: colors.bg, pointBorderWidth: 1,
               },
               // Projected BG
               {
                 type: 'line', label: 'Projected BG',
                 data: [...bridgePad, ...projBG],
-                borderColor: 'rgba(226,232,240,.45)', backgroundColor: 'transparent',
+                borderColor: colorWithAlpha(colors.text, 0.45, '#e2e8f0'), backgroundColor: 'transparent',
                 borderWidth: 1.5, borderDash: [5, 4], pointRadius: 0,
                 tension: 0.3, fill: false, yAxisID: 'yBG',
               },
@@ -6434,22 +6753,22 @@
               {
                 type: 'bar', label: 'Dose (u)',
                 data: [...hist.map(l => l.insulinDose || null), ...new Array(projection.length).fill(null)],
-                backgroundColor: 'rgba(167,139,250,.45)', borderColor: '#a78bfa',
+                backgroundColor: colorWithAlpha(colors.purple, 0.45, '#a78bfa'), borderColor: colors.purple,
                 borderWidth: 1, yAxisID: 'yIns',
               },
               // Active plasma insulin (Qp) over projection
               {
                 type: 'line', label: 'Active plasma insulin (u)',
                 data: [...nullPad, ...projQp],
-                borderColor: '#a78bfa', backgroundColor: 'transparent',
+                borderColor: colors.purple, backgroundColor: 'transparent',
                 borderWidth: 1.5, borderDash: [3, 3], pointRadius: 0,
                 tension: 0.4, fill: false, yAxisID: 'yIns',
               },
               // Glucose lowering rate
               {
-                type: 'line', label: 'Lowering rate (mg/dL/min)',
+                type: 'line', label: `Lowering rate (${glucoseRateUnitLabel(ui)})`,
                 data: [...nullPad, ...projRate],
-                borderColor: '#14b8a6', backgroundColor: 'rgba(20,184,166,.12)',
+                borderColor: colors.teal, backgroundColor: colorWithAlpha(colors.teal, 0.12, '#14b8a6'),
                 borderWidth: 2, fill: true, pointRadius: 0,
                 tension: 0.4, yAxisID: 'yRate',
               },
@@ -6461,53 +6780,58 @@
             plugins: {
               legend: {
                 labels: {
-                  color: '#64748b', font: { family: 'Share Tech Mono', size: 10 }, boxWidth: 10,
+                  color: colors.muted, font: { family: 'Share Tech Mono', size: 10 }, boxWidth: 10,
                 },
               },
               tooltip: {
-                backgroundColor: '#111827', borderColor: '#1e2d45', borderWidth: 1,
-                titleColor: '#e2e8f0', bodyColor: '#94a3b8',
+                backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1,
+                titleColor: colors.text, bodyColor: colors.muted,
                 titleFont: { family: 'Share Tech Mono' },
                 callbacks: {
                   label: ctx => {
                     const v = ctx.parsed.y;
                     if (v == null) return null;
-                    return ` ${ctx.dataset.label}: ${typeof v === 'number' ? v.toFixed(2) : v}`;
+                    const isRate = ctx.dataset.yAxisID === 'yRate';
+                    const formatted = typeof v === 'number'
+                      ? (isRate ? formatRateTick(v, ui) : (ctx.dataset.yAxisID === 'yBG' ? formatChartTick(v, ui) : v.toFixed(2)))
+                      : v;
+                    const suffix = ctx.dataset.yAxisID === 'yBG' ? ` ${bgUnitLabel(ui)}` : '';
+                    return ` ${ctx.dataset.label}: ${formatted}${suffix}`;
                   },
                 },
               },
             },
             scales: {
               x: {
-                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 }, maxRotation: 45 },
-                grid: { color: '#1e2d45' },
+                ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 }, maxRotation: 45 },
+                grid: { color: colorWithAlpha(colors.border, 0.35, '#1e2d45') },
               },
               yBG: {
                 type: 'linear', position: 'left',
-                title: { display: true, text: bgUnitLabel(ui), color: '#e2e8f0', font: { size: 9 } },
-                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } },
-                grid: { color: '#1e2d45' },
+                title: { display: true, text: glucoseAxisTitle(ui), color: colors.text, font: { size: 9 } },
+                ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 }, callback: v => formatChartTick(v, ui) },
+                grid: { color: colorWithAlpha(colors.border, 0.35, '#1e2d45') },
               },
               yIns: {
                 type: 'linear', position: 'right',
-                title: { display: true, text: 'Insulin (u)', color: '#a78bfa', font: { size: 9 } },
-                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } },
+                title: { display: true, text: 'Insulin (u)', color: colors.purple, font: { size: 9 } },
+                ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 } },
                 grid: { drawOnChartArea: false },
                 min: 0,
               },
               yRate: {
                 type: 'linear', position: 'right',
-                title: { display: true, text: 'Rate (mg/dL/min)', color: '#14b8a6', font: { size: 9 } },
-                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } },
+                title: { display: true, text: glucoseRateAxisTitle(ui), color: colors.teal, font: { size: 9 } },
+                ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 }, callback: v => formatRateTick(v, ui) },
                 grid: { drawOnChartArea: false },
-                suggestedMin: -3, suggestedMax: 0.1,
+                min: rateBounds.min, max: rateBounds.max,
               },
             },
           },
         });
 
         return () => { if (inst.current) { inst.current.destroy(); inst.current = null; } };
-      }, [logs, projection, pkState, profile, sim, liveMod, ui]);
+      }, [logs, projection, series, profile, sim, ui]);
 
       if (!logs.filter(l => l.bloodSugar != null).length)
         return <div className="es"><div className="ei">💉</div>Log a dose to see insulin effect</div>;
@@ -6515,6 +6839,8 @@
     }
 
     // -- E6. Chart 5 · Master Aggregator ------------------------------------------
+    // Aggregator only: consumes prepared Chart 1-4 series, aligns them on a common
+    // time base, and anchors its forecast to Chart 4 observations.
     // Pure utility functions — no React, no physiology, only data fusion.
 
     function c5_sampleSeries(series, t, key = 'value', def = 0) {
@@ -6555,34 +6881,55 @@
       return null;
     }
 
-    function c5_aggregate({ startTime, endTime, dtMinutes, ch1, ch2, ch3, ch4, cfg = {} }) {
+    function c5_buildAlignedTimes({ startTime, endTime, dtMinutes, seriesList = [] }) {
+      const times = new Set();
+      const dtMs = dtMinutes * 60000;
+      for (let t = startTime; t <= endTime + 1; t += dtMs) times.add(t);
+      seriesList.forEach(series => {
+        (series || []).forEach(pt => {
+          const ts = Number(pt?.t);
+          if (isFinite(ts) && ts >= startTime && ts <= endTime) times.add(ts);
+        });
+      });
+      return Array.from(times).sort((a, b) => a - b);
+    }
+
+    function c5_aggregate({ startTime, endTime, dtMinutes, chart1Series, chart2Series, chart3Series, chart4Series, cfg = {} }) {
       const G_prod_base = cfg.G_prod_base ?? 0.12;
       const k_basal = cfg.k_basal ?? 0.003;
       const targetBG = cfg.targetBG ?? 100;
       const u_base = cfg.u_base ?? 18;
       const clampMin = cfg.clampMin ?? 40;
       const clampMax = cfg.clampMax ?? 400;
-      const actualTolMs = cfg.actualTolMs ?? 60000;
+      const actualTolMs = cfg.actualTolMs ?? 500;
 
-      let G = c5_initialGlucose(ch4, startTime);
+      let G = c5_initialGlucose(chart4Series, startTime);
       if (G === null) return { error: 'No Chart 4 glucose at or before startTime.' };
 
       const combined = [], bands = [];
-      const dtMs = dtMinutes * 60000;
+      const times = c5_buildAlignedTimes({
+        startTime,
+        endTime,
+        dtMinutes,
+        seriesList: [chart1Series, chart2Series, chart3Series, chart4Series],
+      });
+      let prevT = startTime;
 
-      for (let t = startTime; t <= endTime + 1; t += dtMs) {
-        const mealRate = c5_sampleSeries(ch1, t, 'value', 0);
-        const insulinRate = c5_sampleSeries(ch2, t, 'value', 0);
-        const hepaticFac = c5_sampleSeries(ch3, t, 'hepatic_factor', 1.0);
-        const UScalar = c5_sampleSeries(ch3, t, 'U_scalar', 1.0);
+      for (const t of times) {
+        const stepMinutes = t === startTime ? 0 : Math.max(0, (t - prevT) / 60000);
+        const mealRate = c5_sampleSeries(chart1Series, t, 'value', 0);
+        const insulinRate = c5_sampleSeries(chart2Series, t, 'value', 0);
+        const hepaticFac = c5_sampleSeries(chart3Series, t, 'hepatic_factor', 1.0);
+        const UScalar = c5_sampleSeries(chart3Series, t, 'U_scalar', 1.0);
 
         const hepaticRate = G_prod_base * hepaticFac;
         const basalPull = k_basal * (G - targetBG);
         const netRate = mealRate + hepaticRate + insulinRate - basalPull;
 
-        G = Math.min(clampMax, Math.max(clampMin, G + netRate * dtMinutes));
+        if (stepMinutes > 0)
+          G = Math.min(clampMax, Math.max(clampMin, G + netRate * stepMinutes));
 
-        const observed = c5_sampleObserved(ch4, t, actualTolMs);
+        const observed = c5_sampleObserved(chart4Series, t, actualTolMs);
         if (observed !== null) G = observed;
 
         const horizHr = Math.max((t - startTime) / 3600000, 0.001);
@@ -6590,84 +6937,23 @@
 
         combined.push({ t, glucose: G, mealRate, insulinRate, netRate, observedGlucose: observed });
         bands.push({ t, lower: G - halfW, upper: G + halfW });
+        prevT = t;
       }
-      return { combined, bands, actualSeries: ch4 };
+      return { combined, bands };
     }
 
-    // Stub generators — replaced by real chart data once Charts 2-4 are built.
-    function c5_gen1(start, end, stepMin = 1) {
-      const s = [], ms = stepMin * 60000, meal = start + 15 * 60000;
-      for (let t = start; t <= end; t += ms) {
-        const hr = (t - meal) / 3600000;
-        s.push({ t, value: hr >= 0 && hr < 4 ? Math.max(0, 2.2 * hr * Math.exp(-hr * 1.2)) : 0 });
-      }
-      return s;
-    }
-    function c5_gen2(start, end, stepMin = 1) {
-      const s = [], ms = stepMin * 60000, bolus = start + 20 * 60000;
-      for (let t = start; t <= end; t += ms) {
-        const hr = (t - bolus) / 3600000;
-        s.push({ t, value: hr >= 0 && hr < 5 ? Math.min(0, -1.4 * hr * Math.exp(-hr * 1.3)) : 0 });
-      }
-      return s;
-    }
-    function c5_gen3(start, end, stepMin = 1) {
-      const s = [], ms = stepMin * 60000, ex = start + 3.2 * 3600000;
-      for (let t = start; t <= end; t += ms) {
-        const hr = (t - ex) / 3600000;
-        const active = hr >= 0 && hr < 2;
-        s.push({
-          t,
-          hepatic_factor: active ? 1 + 0.15 * Math.exp(-hr * 2) : 1.0,
-          U_scalar: active ? 1 + 0.5 * Math.exp(-hr * 1.5) : 1.0,
-        });
-      }
-      return s;
-    }
-    function c5_gen4(start, end, stepMin = 5) {
-      const ms = stepMin * 60000;
-      const trueG = t => {
-        const hr = (t - start) / 3600000;
-        return Math.max(70, Math.min(250,
-          120 + 8 * hr * Math.exp(-hr * 0.7)
-          - 2.5 * Math.max(0, hr - 0.5) * Math.exp(-(hr - 0.5) * 0.8)
-          + 5 * Math.sin(hr * 0.5)));
-      };
-      const s = [];
-      for (let t = start; t <= end; t += ms)
-        s.push({ t, glucose: Math.round(trueG(t) + Math.random() * 6 - 3), type: 'cgm' });
-      [0, 1.2, 2.5, 4.0].forEach(h => {
-        const t = start + h * 3600000;
-        if (t <= end) s.push({ t, glucose: Math.round(trueG(t)), type: 'fingerstick' });
-      });
-      return s.sort((a, b) => a.t - b.t);
-    }
-
-    function Chart5AggregatorChart({ logs, projection, ui, profile, sim, liveMod }) {
+    function Chart5AggregatorChart({ chart1Series, chart2Series, chart3Series, chart4Series, chart4Raw, profile, sim, ui }) {
       const ref = useRef(null);
       const inst = useRef(null);
 
       useEffect(() => {
         if (!ref.current) return;
+        const colors = getChartTheme(ui);
 
-        const now = Date.now();
+        const now = chart2Series?.[0]?.t ?? chart4Series?.at(-1)?.t ?? Date.now();
         const start = now - 4 * 3600000;
         const end = now + 2 * 3600000;
-
-        // Use real Chart 1 meal absorption if meals exist; fall back to stub.
-        const realCh1 = c1_buildMealSeries(logs, profile, sim);
-        const ch1 = realCh1.length > 0 ? realCh1 : c5_gen1(start, end, 1);
-        // Use real Chart 2 insulin-effect series for forward window; fall back to stub.
-        const realCh2 = c2_buildInsulinSeries(projection, profile, sim, liveMod);
-        const ch2 = realCh2.length > 0 ? realCh2 : c5_gen2(start, end, 1);
-        // Use real Chart 3 modifier series if logs are available; fall back to stub.
-        const realCh3 = c3_buildModifierSeries(logs, profile, sim);
-        const ch3 = realCh3.length > 0 ? realCh3 : c5_gen3(start, end, 1);
-        // Use real Chart 4 fusion if logs are available; fall back to stub otherwise.
-        const realCh4 = c4_buildFusedSeries(logs);
-        const ch4 = realCh4.length > 0 ? realCh4 : c5_gen4(start, end, 5);
-
-        if (!ch1.length || !ch2.length || !ch3.length || !ch4.length) return;
+        if (!chart1Series.length || !chart2Series.length || !chart3Series.length || !chart4Series.length) return;
 
         // Pull live values from profile/sim so the aggregator matches app settings.
         // sim.k_basal is hr⁻¹; c5_aggregate Euler step is in minutes, so convert.
@@ -6678,112 +6964,152 @@
 
         const result = c5_aggregate({
           startTime: start, endTime: end, dtMinutes: 5,
-          ch1, ch2, ch3, ch4,
+          chart1Series, chart2Series, chart3Series, chart4Series,
           cfg: {
             G_prod_base: 0.12, k_basal, targetBG,
-            u_base, clampMin, clampMax: 400, actualTolMs: 60000
+            u_base, clampMin, clampMax: BG_ENTRY_MAX, actualTolMs: 60000
           },
         });
         if (result.error) { console.error('Chart5:', result.error); return; }
 
-        const fmtT = ms => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const labels = result.combined.map(p => fmtT(p.t));
+        const cgmDisplay = (chart4Raw?.cgm || []).map(p => ({ ...p, y: bgValueForDisplayNumber(p.y, ui) }));
+        const fingerstickDisplay = (chart4Raw?.fingerstick || []).map(p => ({ ...p, y: bgValueForDisplayNumber(p.y, ui) }));
+        const manualDisplay = (chart4Raw?.manual || []).map(p => ({ ...p, y: bgValueForDisplayNumber(p.y, ui) }));
+        const bandUpper = result.bands.map(b => ({ x: b.t, y: bgValueForDisplayNumber(b.upper, ui) }));
+        const bandLower = result.bands.map(b => ({ x: b.t, y: bgValueForDisplayNumber(b.lower, ui) }));
+        const fusedDisplay = result.combined.map(p => ({ x: p.t, y: bgValueForDisplayNumber(p.glucose, ui) }));
+        const mealRateDisplay = result.combined.map(p => ({ x: p.t, y: glucoseRateForDisplayNumber(p.mealRate, ui) }));
+        const insulinRateDisplay = result.combined.map(p => ({ x: p.t, y: glucoseRateForDisplayNumber(p.insulinRate, ui) }));
+        const bgBounds = computeBgAxisBounds([
+          ...cgmDisplay.map(p => p.y),
+          ...fingerstickDisplay.map(p => p.y),
+          ...manualDisplay.map(p => p.y),
+          ...bandUpper.map(p => p.y),
+          ...bandLower.map(p => p.y),
+          ...fusedDisplay.map(p => p.y),
+        ], ui);
+        const rateBounds = computeNumericAxisBounds([
+          ...mealRateDisplay.map(p => p.y),
+          ...insulinRateDisplay.map(p => p.y),
+        ], {
+          floor: glucoseRateForDisplayNumber(-2, ui),
+          ceil: glucoseRateForDisplayNumber(2.5, ui),
+          step: isMmol(ui) ? 0.05 : 0.5,
+          pad: glucoseRateForDisplayNumber(0.15, ui) ?? 0,
+          includeZero: true,
+          minSpan: isMmol(ui) ? 0.2 : 1,
+        });
 
         if (inst.current) { inst.current.destroy(); inst.current = null; }
 
         inst.current = new Chart(ref.current.getContext('2d'), {
           type: 'line',
           data: {
-            labels,
             datasets: [
-              // CGM dots (Chart 4)
               {
                 label: 'CGM (Ch4)',
-                data: result.actualSeries.filter(p => p.type === 'cgm').map(p => ({
-                  x: fmtT(p.t), y: p.glucose
-                })),
-                type: 'scatter', backgroundColor: '#475569', pointRadius: 3,
+                data: cgmDisplay,
+                type: 'scatter', backgroundColor: colors.info, pointRadius: 3,
                 order: 2, yAxisID: 'yBG',
+                parsing: false,
               },
-              // Fingerstick dots (Chart 4)
               {
                 label: 'Fingerstick (Ch4)',
-                data: result.actualSeries.filter(p => p.type === 'fingerstick').map(p => ({
-                  x: fmtT(p.t), y: p.glucose
-                })),
-                type: 'scatter', backgroundColor: '#ef4444', borderColor: '#fff',
+                data: fingerstickDisplay,
+                type: 'scatter', backgroundColor: colors.danger, borderColor: colors.surface,
                 borderWidth: 2, pointRadius: 6, order: 1, yAxisID: 'yBG',
+                parsing: false,
               },
-              // Uncertainty band — upper fills down to lower
+              {
+                label: 'Manual (Ch4)',
+                data: manualDisplay,
+                type: 'scatter', backgroundColor: colors.success, borderColor: colors.surface,
+                borderWidth: 1, pointRadius: 5, order: 2, yAxisID: 'yBG',
+                parsing: false,
+              },
               {
                 label: 'Band upper',
-                data: result.bands.map(b => b.upper),
-                borderColor: 'transparent', backgroundColor: 'rgba(0,212,255,0.10)',
+                data: bandUpper,
+                borderColor: 'transparent', backgroundColor: colorWithAlpha(colors.accent, 0.10, '#00d4ff'),
                 pointRadius: 0, fill: '+1', order: 4, yAxisID: 'yBG',
+                parsing: false,
               },
               {
                 label: 'Band lower',
-                data: result.bands.map(b => b.lower),
+                data: bandLower,
                 borderColor: 'transparent', backgroundColor: 'transparent',
                 pointRadius: 0, fill: false, order: 5, yAxisID: 'yBG',
+                parsing: false,
               },
-              // Fused modeled BG
               {
                 label: 'Fused BG (Ch5)',
-                data: result.combined.map(p => p.glucose),
-                borderColor: '#00d4ff', borderWidth: 2.5, pointRadius: 0,
+                data: fusedDisplay,
+                borderColor: colors.accent, borderWidth: 2.5, pointRadius: 0,
                 tension: 0.25, order: 3, yAxisID: 'yBG',
+                parsing: false,
               },
-              // Meal rate (Chart 1) — secondary axis
               {
                 label: 'Meal rate (Ch1)',
-                data: result.combined.map(p => p.mealRate),
-                borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.08)',
+                data: mealRateDisplay,
+                borderColor: colors.success, backgroundColor: colorWithAlpha(colors.success, 0.08, '#4ade80'),
                 borderWidth: 1.5, fill: true, pointRadius: 0,
                 tension: 0.25, order: 6, yAxisID: 'yRate',
+                parsing: false,
               },
-              // Insulin rate (Chart 2) — secondary axis
               {
                 label: 'Insulin rate (Ch2)',
-                data: result.combined.map(p => p.insulinRate),
-                borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.08)',
+                data: insulinRateDisplay,
+                borderColor: colors.purple, backgroundColor: colorWithAlpha(colors.purple, 0.08, '#a78bfa'),
                 borderWidth: 1.5, fill: true, pointRadius: 0,
                 tension: 0.25, order: 7, yAxisID: 'yRate',
+                parsing: false,
               },
             ],
           },
           options: {
             responsive: true, maintainAspectRatio: false,
+            parsing: false,
             interaction: { mode: 'index', intersect: false },
             plugins: {
               legend: {
                 labels: {
-                  color: '#64748b', font: { family: 'Share Tech Mono', size: 10 }, boxWidth: 10,
+                  color: colors.muted, font: { family: 'Share Tech Mono', size: 10 }, boxWidth: 10,
                   filter: item => !item.text.includes('Band'),
                 },
               },
               tooltip: {
-                backgroundColor: '#111827', borderColor: '#1e2d45', borderWidth: 1,
-                titleColor: '#e2e8f0', bodyColor: '#94a3b8',
+                backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1,
+                titleColor: colors.text, bodyColor: colors.muted,
                 titleFont: { family: 'Share Tech Mono' },
                 filter: item => !item.dataset.label.includes('Band'),
+                callbacks: {
+                  label: ctx => {
+                    const v = ctx.parsed.y;
+                    if (v == null) return null;
+                    if (ctx.dataset.yAxisID === 'yBG')
+                      return `${ctx.dataset.label}: ${formatChartTick(v, ui)} ${bgUnitLabel(ui)}`;
+                    return `${ctx.dataset.label}: ${formatRateTick(v, ui)} ${glucoseRateUnitLabel(ui)}`;
+                  },
+                },
               },
             },
             scales: {
               x: {
-                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 }, maxRotation: 45 },
-                grid: { color: '#1e2d45' },
+                type: 'time',
+                time: { unit: 'hour', displayFormats: { hour: 'HH:mm' }, tooltipFormat: 'yyyy-MM-dd HH:mm' },
+                ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 }, maxRotation: 45 },
+                grid: { color: colorWithAlpha(colors.border, 0.35, '#1e2d45') },
               },
               yBG: {
-                type: 'linear', position: 'left', min: 40, max: 350,
-                title: { display: true, text: 'Glucose (mg/dL)', color: '#00d4ff', font: { size: 9 } },
-                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } },
-                grid: { color: '#1e2d45' },
+                type: 'linear', position: 'left', min: bgBounds.min, max: bgBounds.max,
+                title: { display: true, text: glucoseAxisTitle(ui), color: colors.accent, font: { size: 9 } },
+                ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 }, callback: v => formatChartTick(v, ui) },
+                grid: { color: colorWithAlpha(colors.border, 0.35, '#1e2d45') },
               },
               yRate: {
-                type: 'linear', position: 'right', min: -2, max: 2.5,
-                title: { display: true, text: 'Rate (mg/dL/min)', color: '#64748b', font: { size: 9 } },
-                ticks: { color: '#334155', font: { family: 'Share Tech Mono', size: 9 } },
+                type: 'linear', position: 'right', min: rateBounds.min, max: rateBounds.max,
+                title: { display: true, text: glucoseRateAxisTitle(ui), color: colors.muted, font: { size: 9 } },
+                ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 }, callback: v => formatRateTick(v, ui) },
                 grid: { drawOnChartArea: false },
               },
             },
@@ -6791,13 +7117,199 @@
         });
 
         return () => { if (inst.current) { inst.current.destroy(); inst.current = null; } };
-      }, [logs, projection, profile, sim, liveMod]);
+      }, [chart1Series, chart2Series, chart3Series, chart4Series, chart4Raw, profile, sim, ui]);
+
+      if (!chart4Series.length)
+        return <div className="es"><div className="ei">📈</div>Need Chart 4 glucose observations to anchor forecast</div>;
 
       return (
         <div style={{ position: 'relative', height: '380px' }}>
           <canvas ref={ref} />
         </div>
       );
+    }
+
+    // ChartDataPipeline is the single immutable source snapshot for all chart consumers.
+    // Source builders run once at app level.
+    // Chart 1-4 render pipeline-owned series.
+    // Chart 5 aggregates pipeline-owned series only.
+    // -- E6b. Unified chart data pipeline -----------------------------------------
+    function validateTimeSeries(name, series, requiredKeys = ['t']) {
+      if (!Array.isArray(series)) throw new Error(`${name} must be an array`);
+
+      let prevT = -Infinity;
+      for (let i = 0; i < series.length; i++) {
+        const pt = series[i];
+        if (!pt || typeof pt !== 'object') throw new Error(`${name}[${i}] must be an object`);
+        for (const key of requiredKeys) {
+          if (!(key in pt)) throw new Error(`${name}[${i}] missing ${key}`);
+        }
+        const t = Number(pt.t);
+        if (!Number.isFinite(t)) throw new Error(`${name}[${i}].t not finite`);
+        if (t < prevT) throw new Error(`${name} not sorted ascending`);
+        prevT = t;
+      }
+    }
+
+    function validateScatterSeries(name, series) {
+      if (!Array.isArray(series)) throw new Error(`${name} must be an array`);
+
+      let prevX = -Infinity;
+      for (let i = 0; i < series.length; i++) {
+        const pt = series[i];
+        if (!pt || typeof pt !== 'object') throw new Error(`${name}[${i}] must be an object`);
+        const x = Number(pt.x);
+        const y = Number(pt.y);
+        if (!Number.isFinite(x)) throw new Error(`${name}[${i}].x not finite`);
+        if (!Number.isFinite(y)) throw new Error(`${name}[${i}].y not finite`);
+        if (x < prevX) throw new Error(`${name} not sorted ascending`);
+        prevX = x;
+      }
+    }
+
+    function freezeValue(value) {
+      if (Array.isArray(value)) return Object.freeze(value.map(freezeValue));
+      if (value && typeof value === 'object') {
+        const frozen = {};
+        Object.keys(value).forEach(key => { frozen[key] = freezeValue(value[key]); });
+        return Object.freeze(frozen);
+      }
+      return value;
+    }
+
+    function freezeArray(arr) {
+      return Object.freeze((arr || []).map(item => freezeValue(item)));
+    }
+
+    function freezeRawSeries(raw) {
+      return Object.freeze({
+        cgm: freezeArray(raw?.cgm || []),
+        fingerstick: freezeArray(raw?.fingerstick || []),
+        manual: freezeArray(raw?.manual || []),
+      });
+    }
+
+    function validateChartDataPipeline(pipeline) {
+      validateTimeSeries('chart1.series', pipeline.chart1.series, ['t', 'value']);
+      validateTimeSeries('chart2.series', pipeline.chart2.series, ['t', 'value']);
+      validateTimeSeries('chart3.series', pipeline.chart3.series, ['t']);
+      validateTimeSeries('chart4.fusedSeries', pipeline.chart4.fusedSeries, ['t', 'glucose']);
+      validateScatterSeries('chart4.rawSeries.cgm', pipeline.chart4.rawSeries.cgm);
+      validateScatterSeries('chart4.rawSeries.fingerstick', pipeline.chart4.rawSeries.fingerstick);
+      validateScatterSeries('chart4.rawSeries.manual', pipeline.chart4.rawSeries.manual);
+    }
+
+    function deepFreezeChartPipeline(pipeline) {
+      const meta = freezeValue(pipeline.meta);
+      const chart1Series = freezeArray(pipeline.chart1.series);
+      const chart2Series = freezeArray(pipeline.chart2.series);
+      const chart3Series = freezeArray(pipeline.chart3.series);
+      const chart4Series = freezeArray(pipeline.chart4.fusedSeries);
+      const chart4Raw = freezeRawSeries(pipeline.chart4.rawSeries);
+
+      return Object.freeze({
+        meta,
+        chart1: Object.freeze({ series: chart1Series }),
+        chart2: Object.freeze({ series: chart2Series }),
+        chart3: Object.freeze({ series: chart3Series }),
+        chart4: Object.freeze({
+          fusedSeries: chart4Series,
+          rawSeries: chart4Raw,
+        }),
+        aggregator: Object.freeze({
+          chart1Series,
+          chart2Series,
+          chart3Series,
+          chart4Series,
+          chart4Raw,
+        }),
+      });
+    }
+
+    function emptyChartDataPipeline(nowMs = Date.now(), error = null) {
+      return deepFreezeChartPipeline({
+        meta: {
+          nowMs,
+          windowStartMs: nowMs,
+          windowEndMs: nowMs,
+          dtMinutes: 5,
+          version: 1,
+          error,
+        },
+        chart1: { series: [] },
+        chart2: { series: [] },
+        chart3: { series: [] },
+        chart4: {
+          fusedSeries: [],
+          rawSeries: { cgm: [], fingerstick: [], manual: [] },
+        },
+        aggregator: {
+          chart1Series: [],
+          chart2Series: [],
+          chart3Series: [],
+          chart4Series: [],
+          chart4Raw: { cgm: [], fingerstick: [], manual: [] },
+        },
+      });
+    }
+
+    function buildChartDataPipeline({ logs, projection, profile, sim, liveMod, nowMs = Date.now() }) {
+      try {
+        // Freeze the render-cycle time origin once so all source builders that depend on
+        // "now" share the exact same timestamp and produce atomically aligned series.
+        const dtMinutes = 5;
+        const windowStartMs = nowMs - 8 * 3600000;
+        const windowEndMs = nowMs + 4 * 3600000;
+        const chart1Series = c1_buildMealSeries(logs, profile, sim, {
+          nowMs,
+          windowStartMs,
+          windowEndMs,
+          dtMin: dtMinutes,
+        });
+        const chart2Series = c2_buildInsulinSeries(projection, profile, sim, liveMod, nowMs);
+        const chart3Series = c3_buildModifierSeries(logs, profile, sim, liveMod, nowMs);
+        const actualGlucoseSource = c4_buildActualGlucoseSource(logs);
+        const chart4Raw = {
+          cgm: actualGlucoseSource.rawSeries?.cgm || [],
+          fingerstick: actualGlucoseSource.rawSeries?.fingerstick || [],
+          manual: actualGlucoseSource.rawSeries?.manual || [],
+        };
+        const pipeline = {
+          meta: {
+            nowMs,
+            windowStartMs,
+            windowEndMs,
+            dtMinutes,
+            version: 1,
+          },
+          chart1: {
+            series: chart1Series,
+          },
+          chart2: {
+            series: chart2Series,
+          },
+          chart3: {
+            series: chart3Series,
+          },
+          chart4: {
+            fusedSeries: actualGlucoseSource.fusedSeries,
+            rawSeries: chart4Raw,
+          },
+          aggregator: {
+            chart1Series,
+            chart2Series,
+            chart3Series,
+            chart4Series: actualGlucoseSource.fusedSeries,
+            chart4Raw,
+          },
+        };
+
+        validateChartDataPipeline(pipeline);
+        return deepFreezeChartPipeline(pipeline);
+      } catch (err) {
+        console.warn('Chart pipeline failed; falling back to empty chart state.', err);
+        return emptyChartDataPipeline(nowMs, err?.message || 'chart-pipeline-failed');
+      }
     }
 
     // -- E7. Log table -------------------------------------------------------------
@@ -6854,7 +7366,14 @@
                     {l.stress > 0 ? STRESS_LEVELS.find(s => s.value === l.stress)?.label ?? l.stress : '—'}
                     {l.illness ? ' 🤒' : ''}
                   </td>
-                  <td style={{ color: 'var(--td)', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.notes || '—'}</td>
+                  <td style={{ color: 'var(--td)' }}>
+                    <div
+                      title={l.notes || ''}
+                      style={{ minWidth: '160px', maxWidth: '260px', whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.4 }}
+                    >
+                      {l.notes || '—'}
+                    </div>
+                  </td>
                   <td><button className="btn bd_ bsm" onClick={() => onDelete(l.id)}>✕</button></td>
                 </tr>
               ))}
@@ -6981,6 +7500,9 @@
       }, [cgmCfg.enabled, cgmCfg.url, cgmCfg.authMethod, cgmCfg.apiSecret, cgmCfg.token, cgmCfg.pollMins, cgmCfg.autoFill, ui]);
 
       const showT = (msg, type = 'ok') => setToast({ msg, type, id: Date.now() });
+      useEffect(() => {
+        if (DID_RESET_STORED_STATE) showT('Saved browser state was reset from the URL flag.');
+      }, []);
 
       // -- Derived physiologic state (memoised) --------------------------------------
       const sv = useMemo(() => computeStateVars(logs, profile, sim), [logs, profile, sim]);
@@ -7086,6 +7608,25 @@
         return simulateProjection(startG, pkState, sv, inp, profile, sim, 4, mealState);
       }, [effBgNum, pkState, sv, inp, profile, sim, logs, mealState]);
 
+      // Low-risk routing choice: keep legacy chartTab IDs ('bg', 'c2', 'c3', 'c4', 'c5')
+      // while the canonical ownership model stays Chart 1-5 as documented above.
+      const chartNowMs = useMemo(() => Date.now(), [logs, projection, profile, sim, liveMod]);
+      const chartPipeline = useMemo(() => buildChartDataPipeline({
+        logs,
+        projection,
+        profile,
+        sim,
+        liveMod,
+        nowMs: chartNowMs,
+      }), [logs, projection, profile, sim, liveMod, chartNowMs]);
+      const {
+        chart1,
+        chart2,
+        chart3,
+        chart4,
+        aggregator,
+      } = chartPipeline;
+
       // -- Event handlers ------------------------------------------------------------
       const handleLog = () => {
         if (entryValidation.bgErr || entryValidation.fsErr) { showT('Fix blood sugar input range before logging', 'err'); return; }
@@ -7161,7 +7702,7 @@
                 <div className="as">Insulin Action Model</div>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="hdr-actions">
               {/* CGM badge — only when enabled */}
               {cgmCfg.enabled && cgmCfg.url && (
                 <div className={`cgm-badge ${cgmStatus === 'live' ? 'live' : cgmStatus === 'stale' ? 'stale' : cgmStatus === 'error' ? 'error' : 'polling'}`}
@@ -7290,36 +7831,38 @@
             {logs.slice(0, 3).length > 0 && (
               <div className="card">
                 <div className="ct">📌 Recent</div>
-                <table className="lt">
-                  <thead>
-                    <tr>
-                      <th>Time</th><th>BG</th><th>Carbs</th><th>Dose</th>
-                      <th title="Insulin sensitivity as % of baseline">Sensitivity %</th>
-                      <th title="Absorption speed relative to baseline">Absorption ×</th>
-                      <th>PA</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {logs.slice(0, 3).map(l => (
-                      <tr key={l.id}>
-                        <td>{fmtT(l.timestamp)}</td>
-                        <td>
-                          {l.bloodSugar != null ? (
-                            <span className={`tag t${zone(l.bloodSugar, profile)[0]}`}
-                              title={l.fingerstick ? 'Fingerstick' : 'CGM'}>
-                              {l.fingerstick ? '🩸 ' : (l.cgm ? '📡 ' : '')}{formatBgForDisplay(l.bloodSugar, ui, isMmol(ui) ? 1 : 0)}
-                            </span>
-                          ) : '—'}
-                        </td>
-                        <td>{l.carbs ? `${l.carbs}g` : '—'}</td>
-                        <td style={{ color: 'var(--ac)' }}>{l.insulinDose ? `${l.insulinDose}u` : '—'}</td>
-                        <td style={{ color: 'var(--o)' }}>{l.seff_mult != null ? `${Math.round(l.seff_mult * 100)}%` : '—'}</td>
-                        <td style={{ color: l.kabs_rel ? modColor(l.kabs_rel) : 'var(--td)' }}>{l.kabs_rel ? `${l.kabs_rel}×` : '—'}</td>
-                        <td style={{ color: 'var(--td)' }}>{l.pa != null ? `${l.pa}M` : '—'}</td>
+                <div className="table-scroll">
+                  <table className="lt">
+                    <thead>
+                      <tr>
+                        <th>Time</th><th>BG</th><th>Carbs</th><th>Dose</th>
+                        <th title="Insulin sensitivity as % of baseline">Sensitivity %</th>
+                        <th title="Absorption speed relative to baseline">Absorption ×</th>
+                        <th>PA</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {logs.slice(0, 3).map(l => (
+                        <tr key={l.id}>
+                          <td>{fmtT(l.timestamp)}</td>
+                          <td>
+                            {l.bloodSugar != null ? (
+                              <span className={`tag t${zone(l.bloodSugar, profile)[0]}`}
+                                title={l.fingerstick ? 'Fingerstick' : 'CGM'}>
+                                {l.fingerstick ? '🩸 ' : (l.cgm ? '📡 ' : '')}{formatBgForDisplay(l.bloodSugar, ui, isMmol(ui) ? 1 : 0)}
+                              </span>
+                            ) : '—'}
+                          </td>
+                          <td>{l.carbs ? `${l.carbs}g` : '—'}</td>
+                          <td style={{ color: 'var(--ac)' }}>{l.insulinDose ? `${l.insulinDose}u` : '—'}</td>
+                          <td style={{ color: 'var(--o)' }}>{l.seff_mult != null ? `${Math.round(l.seff_mult * 100)}%` : '—'}</td>
+                          <td style={{ color: l.kabs_rel ? modColor(l.kabs_rel) : 'var(--td)' }}>{l.kabs_rel ? `${l.kabs_rel}×` : '—'}</td>
+                          <td style={{ color: 'var(--td)' }}>{l.pa != null ? `${l.pa}M` : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </>)}
@@ -7507,6 +8050,8 @@
           </>)}
 
           {/* ------ CHARTS TAB ------------------------------------------------------- */}
+          {/* Legacy tab IDs are intentionally preserved for this refactor:
+              bg = Chart 5 aggregator, c2 = Chart 2, c3 = Chart 3, c4 = Chart 4, c5 = Chart 1 meal view. */}
           {tab === 'charts' && (<>
             <div className="chart-tabs">
               {[
@@ -7525,8 +8070,14 @@
               <div className="card">
                 <div className="ct">📈 BG & Forecast</div>
                 <Chart5AggregatorChart
-                  logs={logs} projection={projection} ui={ui}
-                  profile={profile} sim={sim} liveMod={liveMod} />
+                  chart1Series={aggregator.chart1Series}
+                  chart2Series={aggregator.chart2Series}
+                  chart3Series={aggregator.chart3Series}
+                  chart4Series={aggregator.chart4Series}
+                  chart4Raw={aggregator.chart4Raw}
+                  profile={profile}
+                  sim={sim}
+                  ui={ui} />
                 <div className="note" style={{ marginTop: '8px' }}>
                   Fused BG trace anchored to real observations (Chart 4) with meal (green) and insulin (purple) contributions on secondary axis. Uncertainty band widens with horizon. Meal absorption and insulin rates derived from your logged entries.
                 </div>
@@ -7537,14 +8088,18 @@
               <div className="card">
                 <div className="ct">💉 Insulin Effect on Blood Glucose</div>
                 <Chart2InsulinEffectChart
-                  logs={logs} projection={projection} pkState={pkState}
-                  profile={profile} sim={sim} liveMod={liveMod} ui={ui} />
+                  logs={logs}
+                  projection={projection}
+                  series={chart2.series}
+                  profile={profile}
+                  sim={sim}
+                  ui={ui} />
                 <div className="note" style={{ marginTop: '8px' }}>
-                  <span style={{ color: '#e2e8f0' }}>White</span> = BG history,
-                  <span style={{ color: 'rgba(226,232,240,.5)' }}> dashed</span> = projected BG,
-                  <span style={{ color: '#a78bfa' }}> purple bars</span> = logged doses,
-                  <span style={{ color: '#a78bfa' }}> dashed purple</span> = active plasma insulin (Qp),
-                  <span style={{ color: '#14b8a6' }}> teal</span> = glucose lowering rate (right axis).
+                  <span style={{ color: 'var(--tx)' }}>Primary line</span> = BG history,
+                  <span style={{ color: 'var(--td)' }}> dashed</span> = projected BG,
+                  <span style={{ color: 'var(--p)' }}> purple bars</span> = logged doses,
+                  <span style={{ color: 'var(--p)' }}> dashed purple</span> = active plasma insulin (Qp),
+                  <span style={{ color: getChartTheme(ui).teal }}> teal</span> = glucose lowering rate (right axis).
                 </div>
               </div>
             )}
@@ -7552,13 +8107,13 @@
             {chartTab === 'c3' && (
               <div className="card">
                 <div className="ct">🔧 Modifier Suite</div>
-                <Chart3ModifierChart logs={logs} profile={profile} sim={sim} liveMod={liveMod} ui={ui} />
+                <Chart3ModifierChart series={chart3.series} ui={ui} />
                 <div className="note" style={{ marginTop: '8px' }}>
                   Historical modifier values reconstructed per log entry using your real profile &amp; sim settings.
-                  <span style={{ color: '#38bdf8' }}> Blue</span> = absorption,
-                  <span style={{ color: '#c084fc' }}> purple</span> = sensitivity,
-                  <span style={{ color: '#fbbf24' }}> amber</span> = hepatic factor,
-                  <span style={{ color: '#fb7185' }}> red</span> = uncertainty (right axis).
+                  <span style={{ color: 'var(--ac)' }}> accent</span> = absorption,
+                  <span style={{ color: 'var(--p)' }}> purple</span> = sensitivity,
+                  <span style={{ color: 'var(--y)' }}> amber</span> = hepatic factor,
+                  <span style={{ color: 'var(--r)' }}> red</span> = uncertainty (right axis).
                   ★ = current live values.
                 </div>
               </div>
@@ -7567,9 +8122,12 @@
             {chartTab === 'c4' && (
               <div className="card">
                 <div className="ct">🩸 Actual Glucose Measurements</div>
-                <Chart4ActualGlucoseChart logs={logs} ui={ui} />
+                <Chart4ActualGlucoseChart
+                  fusedSeries={chart4.fusedSeries}
+                  rawSeries={chart4.rawSeries}
+                  ui={ui} />
                 <div className="note" style={{ marginTop: '8px' }}>
-                  Per-timestamp fusion: <span style={{ color: '#ef4444' }}>fingerstick</span> {'>'} <span style={{ color: '#3b82f6' }}>CGM</span> {'>'} <span style={{ color: '#22c55e' }}>manual</span>. Values outside 20–400 mg/dL are excluded.
+                  Per-timestamp fusion: <span style={{ color: 'var(--r)' }}>fingerstick</span> {'>'} <span style={{ color: getChartTheme(ui).info }}>CGM</span> {'>'} <span style={{ color: 'var(--g)' }}>manual</span>. Values outside {formatBgRange(20, 600, ui)} are excluded.
                 </div>
               </div>
             )}
@@ -7577,15 +8135,15 @@
             {chartTab === 'c5' && (
               <div className="card">
                 <div className="ct">🍽️ Meal Absorption Model</div>
-                <Chart5CarbModelChart logs={logs} sim={sim} />
+                <Chart1MealContributionChart series={chart1.series} ui={ui} />
                 <div className="note" style={{ marginTop: '8px' }}>
-                  <span style={{ color: 'rgba(255,255,255,0.95)' }}>White dots</span> = logged meal inputs from your entries.
-                  <span style={{ color: 'rgba(255,255,255,0.85)' }}> White line/fill</span> = fused meal response.
+                  <span style={{ color: 'var(--tx)' }}>Light dots</span> = logged meal inputs from your entries.
+                  <span style={{ color: 'var(--tx)' }}> primary line/fill</span> = fused meal response.
                   Two-compartment gastric model: stomach D<sub>g</sub> (
-                  <span style={{ color: '#50a0ff' }}>blue dashed</span>) → gut R<sub>c</sub> (
-                  <span style={{ color: '#c864ff' }}>purple dashed</span>) → blood.
-                  <span style={{ color: '#50dc78' }}> green</span> = carb rate,
-                  <span style={{ color: '#fab43c' }}> amber</span> = fat+protein rate (mg·dL⁻¹·min⁻¹).
+                  <span style={{ color: 'var(--ac)' }}>accent dashed</span>) → gut R<sub>c</sub> (
+                  <span style={{ color: 'var(--p)' }}>purple dashed</span>) → blood.
+                  <span style={{ color: 'var(--g)' }}> green</span> = carb rate,
+                  <span style={{ color: 'var(--o)' }}> amber</span> = fat+protein rate ({glucoseRateUnitLabel(ui)}).
                   Gastric emptying is modulated by meal type, fiber class, alcohol, THC, and depressant levels from your logs.
                 </div>
               </div>
@@ -7635,6 +8193,7 @@
               setProfile={setProfile}
               setSim={setSim}
               showT={showT}
+              ui={ui}
             />
           )}
 

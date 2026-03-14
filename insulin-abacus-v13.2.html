@@ -2243,6 +2243,18 @@
     }
 
     const DID_RESET_STORED_STATE = maybeResetStoredStateFromUrl();
+    const CHART_PIPELINE_DEBUG = (() => {
+      try {
+        return new URLSearchParams(window.location.search).get('debugChartPipeline') === '1';
+      } catch {
+        return false;
+      }
+    })();
+    const MS_PER_HOUR = 3_600_000;
+    const CHART_WINDOW_HOURS = 8;
+    const CHART_PROJECTION_HOURS = 8;
+    const CHART_DT_MINUTES = 5;
+    const CHART_WINDOW_MS = CHART_WINDOW_HOURS * MS_PER_HOUR;
 
     // Safety guardrails for entry validation and dose computation.
     const BG_ENTRY_MIN = 20;
@@ -2931,6 +2943,87 @@
       if (!v) return nowISO();
       const d = new Date(v);
       return isNaN(d.getTime()) ? null : d.toISOString();
+    }
+
+    function isPlainObject(value) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+      const proto = Object.getPrototypeOf(value);
+      return proto === Object.prototype || proto === null;
+    }
+
+    function toEpochMs(value, fieldName = 'timestamp') {
+      if (value == null || value === '') throw new Error(`${fieldName} is missing`);
+
+      if (typeof value === 'number') {
+        if (!Number.isFinite(value)) throw new Error(`${fieldName} is not finite`);
+        return value;
+      }
+
+      if (typeof value === 'string') {
+        const ms = Date.parse(value);
+        if (!Number.isFinite(ms)) throw new Error(`${fieldName} is invalid: ${value}`);
+        return ms;
+      }
+
+      if (value instanceof Date) {
+        const ms = value.getTime();
+        if (!Number.isFinite(ms)) throw new Error(`${fieldName} is invalid Date`);
+        return ms;
+      }
+
+      throw new Error(`${fieldName} has unsupported type: ${typeof value}`);
+    }
+
+    function tryToEpochMs(value, fieldName = 'timestamp') {
+      try { return toEpochMs(value, fieldName); }
+      catch { return NaN; }
+    }
+
+    function getLogTimestampMs(log) {
+      const timestampMs = Number(log?.timestampMs);
+      return Number.isFinite(timestampMs)
+        ? timestampMs
+        : tryToEpochMs(log?.timestamp, 'timestamp');
+    }
+
+    function normalizeTimePoint(raw, valueKey = 'y', timeKey = 'x') {
+      if (!isPlainObject(raw)) throw new Error(`Point for ${timeKey}/${valueKey} must be an object`);
+      const x = toEpochMs(raw[timeKey] ?? raw.time ?? raw.timestamp, timeKey);
+      const y = Number(raw[valueKey] ?? raw.y ?? raw.value);
+
+      if (!Number.isFinite(y)) throw new Error(`Invalid numeric value for ${valueKey}`);
+
+      return { x, y };
+    }
+
+    function normalizeMetricTimePoint(raw, {
+      label = 'point',
+      timeKey = 't',
+      numericKeys = [],
+    } = {}) {
+      if (!isPlainObject(raw)) throw new Error(`${label} must be an object`);
+      const point = { ...raw, [timeKey]: toEpochMs(raw[timeKey] ?? raw.time ?? raw.timestamp, timeKey) };
+      numericKeys.forEach(key => {
+        const value = Number(point[key]);
+        if (!Number.isFinite(value)) throw new Error(`${label}.${key} is invalid`);
+        point[key] = value;
+      });
+      return point;
+    }
+
+    function mergeSeriesByTime(series, timeKey = 'x', mergePoint = (_prev, next) => next) {
+      if (!Array.isArray(series) || series.length < 2) return Array.isArray(series) ? series : [];
+      const merged = [series[0]];
+      for (let i = 1; i < series.length; i++) {
+        const point = series[i];
+        const last = merged[merged.length - 1];
+        if (Number(point?.[timeKey]) === Number(last?.[timeKey])) {
+          merged[merged.length - 1] = mergePoint(last, point);
+        } else {
+          merged.push(point);
+        }
+      }
+      return merged;
     }
 
     // -- Nightscout / CGM utilities ------------------------------------------------
@@ -3671,6 +3764,7 @@
     // Normalise an imported or old log entry so all fields exist with safe types.
     // This is where forward-compatibility lives: old logs missing new fields get defaults.
     function normalizeLogEntry(raw, i) {
+      const timestampMs = toEpochMs(raw?.timestamp, 'timestamp');
       const numFields = [
         'bloodSugar', 'cgm', 'fingerstick', 'carbs', 'insulinDose',
         'hr', 'pa', 'sleep', 'sleepQ', 'stress', 'illness', 'hydration',
@@ -3680,7 +3774,12 @@
         'fat_g', 'protein_g', 'mealType', 'fiberClass',
         'kabs_rel', 'seff_mult',
       ];
-      const out = { id: raw.id || `i${i}`, ...raw };
+      const out = {
+        id: raw.id || `i${i}`,
+        ...raw,
+        timestamp: new Date(timestampMs).toISOString(),
+        timestampMs,
+      };
       numFields.forEach(k => {
         out[k] = raw[k] !== '' && raw[k] != null ? parseFloat(raw[k]) : null;
       });
@@ -3706,10 +3805,23 @@
       return out;
     }
 
+    function normalizeLogCollection(rawLogs, sourceLabel = 'log') {
+      if (!Array.isArray(rawLogs)) return [];
+      return rawLogs.map((raw, i) => {
+        try {
+          return normalizeLogEntry(raw, i);
+        } catch (err) {
+          console.warn(`Skipping invalid ${sourceLabel}[${i}]`, err);
+          return null;
+        }
+      }).filter(Boolean);
+    }
+
     // Validate a single imported row. Returns an error string or null if valid.
     function validateImportedRow(row) {
       if (!row.timestamp) return 'missing timestamp';
-      if (isNaN(new Date(row.timestamp).getTime())) return 'invalid timestamp';
+      try { toEpochMs(row.timestamp, 'timestamp'); }
+      catch { return 'invalid timestamp'; }
       if (row.bloodSugar != null && (row.bloodSugar < 20 || row.bloodSugar > 800))
         return `BG value out of range: ${row.bloodSugar}`;
       return null;
@@ -3784,9 +3896,9 @@
         const raw = {};
         headers.forEach((h, j) => { raw[h] = (vals[j] || '').trim(); });
         const err = validateImportedRow(raw);
-        if (!err) results.push(normalizeLogEntry(raw, i));
+        if (!err) results.push(raw);
       });
-      return results;
+      return normalizeLogCollection(results, 'csv-row');
     }
 
     // Trigger a CSV file download.
@@ -3966,6 +4078,81 @@
       });
     }
 
+    function getChartTimeWindow(centerMs = Date.now()) {
+      return {
+        centerMs,
+        windowStartMs: centerMs - CHART_WINDOW_MS,
+        windowEndMs: centerMs + CHART_WINDOW_MS,
+        projectionHours: CHART_PROJECTION_HOURS,
+        dtMinutes: CHART_DT_MINUTES,
+      };
+    }
+
+    function isWithinChartWindow(timestampMs, timeWindow) {
+      if (!Number.isFinite(timestampMs)) return false;
+      if (!timeWindow) return true;
+      const startMs = Number(timeWindow.windowStartMs);
+      const endMs = Number(timeWindow.windowEndMs);
+      if (Number.isFinite(startMs) && timestampMs < startMs) return false;
+      if (Number.isFinite(endMs) && timestampMs > endMs) return false;
+      return true;
+    }
+
+    function buildSharedChartTimeScale(colors, timeWindow, {
+      maxTicksLimit = 8,
+      unit = 'hour',
+      displayFormats = { hour: 'HH:mm' },
+      tooltipFormat = 'yyyy-MM-dd HH:mm',
+    } = {}) {
+      return {
+        type: 'time',
+        min: timeWindow?.windowStartMs,
+        max: timeWindow?.windowEndMs,
+        time: { unit, displayFormats, tooltipFormat },
+        ticks: {
+          color: colors.faint,
+          font: { family: 'Share Tech Mono', size: 9 },
+          maxRotation: 45,
+          maxTicksLimit,
+        },
+        grid: { color: colorWithAlpha(colors.border, 0.35, '#1e2d45') },
+      };
+    }
+
+    function buildSharedTimeSeriesInteraction() {
+      // Time-scale charts in this app often mix sparse logged events with denser
+      // derived series. Group tooltip items by actual x-position, not dataset index.
+      return { mode: 'x', axis: 'x', intersect: false };
+    }
+
+    function createNowLinePlugin(id, centerMs, colors) {
+      return {
+        id,
+        afterDraw(chart) {
+          const xScale = chart?.scales?.x;
+          if (!xScale) return;
+          const x = xScale.getPixelForValue(centerMs);
+          if (!Number.isFinite(x)) return;
+          const { left, right, top, bottom } = chart.chartArea || {};
+          if (![left, right, top, bottom].every(Number.isFinite)) return;
+          if (x < left || x > right) return;
+          const ctx = chart.ctx;
+          ctx.save();
+          ctx.strokeStyle = colorWithAlpha(colors.warning, 0.7, '#fbbf24');
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(x, top);
+          ctx.lineTo(x, bottom);
+          ctx.stroke();
+          ctx.fillStyle = colorWithAlpha(colors.warning, 0.9, '#fbbf24');
+          ctx.font = '10px "Share Tech Mono", monospace';
+          ctx.fillText('Now', Math.min(x + 4, right - 24), top + 14);
+          ctx.restore();
+        },
+      };
+    }
+
 
     // -------------------------------------------------------------------------------
     //  E.  UI COMPONENTS
@@ -4123,7 +4310,7 @@
               <span style={{ color: 'var(--tm)' }}> ({Math.round(mod.seff_mult * 100)}%)</span>
             </span>
             <span className="msi"
-              title="Model confidence — how reliable the 4-hour forecast is given current stressors">
+              title="Model confidence — how reliable the 8-hour forecast is given current stressors">
               Confidence: <strong style={{ color: confColor }}>{confLabel}</strong>
               <span style={{ color: 'var(--tm)' }}> ({confidencePct}%)</span>
             </span>
@@ -5497,7 +5684,7 @@
               <div style={{ gridColumn: '1/-1' }}>
                 <span className="note">
                   travel_sens_penalty of 0.20 reduces effective sensitivity by ~17% when active — consistent with acute cortisol and epinephrine elevation observed in jet-lag studies.
-                  travel_uncertainty grows the ±forecast band linearly: at 0.30, a 4-hour projection carries a ±12 mg/dL band by hour 4.
+                  travel_uncertainty widens the forecast band with horizon: at 0.30, an 8-hour projection shows a meaningfully broader band than a short forecast.
                 </span>
               </div>
             </div>
@@ -5568,11 +5755,11 @@
                 <span className="note">
                   Band formula: ±(U_scalar × u_base × √t) mg/dL at horizon t hours.
                   The √t growth matches clinical prediction error, which compounds like a random walk rather than growing linearly.
-                  On a sick travel day with overlapping meals and active IOB, U_scalar typically reaches 2–3×, giving a ±40–50 mg/dL band at 4 hours.
+                  On a sick travel day with overlapping meals and active IOB, U_scalar typically reaches 2–3×, giving a much wider band by 8 hours than at the near-term horizon.
                 </span>
               </div>
             </div>
-            <div className="sst" style={{ fontSize: '10px', marginTop: '6px' }}>Glucose Forecast — how the 4-hour prediction is modelled</div>
+            <div className="sst" style={{ fontSize: '10px', marginTop: '6px' }}>Glucose Forecast — how the 8-hour prediction is modelled</div>
             <div className="sg">
               <SField label="G_prod — net glucose production (mg/dL/hr)" k="G_prod" s={sim} set={setSim} step="0.1" />
               <SField label="k_basal — pull toward target BG (hr⁻¹)" k="k_basal" s={sim} set={setSim} step="0.001" />
@@ -5857,7 +6044,7 @@
     // Current source-of-truth functions:
     //   Meal series source = c1_buildMealSeries(...), currently derived from c5_buildMealTimeline(...).
     //   Insulin-effect series source = c2_buildInsulinSeries(projection, profile, sim, liveMod).
-    //   Modifier series source = c3_buildModifierSeries(logs, profile, sim, liveMod, nowMs).
+    //   Modifier series source = c3_buildModifierSeries(logs, profile, sim, liveMod, timeWindow).
     //   Actual glucose fused source = c4_buildFusedSeries(logs).
     //   Actual glucose raw scatter source = c4_extractRaw(logs).
     //
@@ -5917,26 +6104,26 @@
     function c5_buildMealTimeline(logs, sim, startMs, endMs, dtMin = 5) {
       const dtMs = dtMin * 60000;
       const mealLogs = (logs || [])
-        .filter(l => {
-          const tMs = new Date(l.timestamp).getTime();
-          return isFinite(tMs)
-            && tMs <= endMs
-            && tMs >= startMs - 12 * 3600000
-            && (safeNum(l.carbs, 0) > 0 || safeNum(l.fat_g, 0) > 0 || safeNum(l.protein_g, 0) > 0);
-        })
-        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-        .map(meal => {
+        .map(log => ({ log, tMs: getLogTimestampMs(log) }))
+        .filter(({ log, tMs }) => Number.isFinite(tMs)
+          && tMs <= endMs
+          && tMs >= startMs - 12 * 3600000
+          && (safeNum(log.carbs, 0) > 0 || safeNum(log.fat_g, 0) > 0 || safeNum(log.protein_g, 0) > 0))
+        .sort((a, b) => a.tMs - b.tMs)
+        .map(({ log: meal, tMs }) => {
           const carbs_g = safeNum(meal.carbs, 0);
           const fat_g = safeNum(meal.fat_g, 0);
           const protein_g = safeNum(meal.protein_g, 0);
           return {
-            tMs: new Date(meal.timestamp).getTime(),
+            tMs,
             params: c5_buildMealParams(sim, meal),
             factors: c5_buildMealFactors(sim, meal),
             meal: { carbs_g, fat_g, protein_g },
             inputPoint: {
-              x: new Date(meal.timestamp).getTime(),
-              y: carbs_g + fat_g + protein_g,
+              ...normalizeTimePoint({
+                x: tMs,
+                y: carbs_g + fat_g + protein_g,
+              }),
               carbs_g,
               fat_g,
               protein_g,
@@ -5978,9 +6165,17 @@
       const fpRate = [];
       const D_g = [];
       const R_c = [];
-      const inputPoints = mealLogs
+      const inputPoints = mergeSeriesByTime(mealLogs
         .filter(model => model.tMs >= startMs && model.tMs <= endMs)
-        .map(model => model.inputPoint);
+        .map(model => model.inputPoint)
+        .sort((a, b) => a.x - b.x), 'x', (prev, next) => ({
+          ...prev,
+          y: prev.y + next.y,
+          carbs_g: prev.carbs_g + next.carbs_g,
+          fat_g: prev.fat_g + next.fat_g,
+          protein_g: prev.protein_g + next.protein_g,
+          total_g: prev.total_g + next.total_g,
+        }));
 
       for (let tMs = simStartMs; tMs <= endMs; tMs += dtMs) {
         for (const model of mealLogs) {
@@ -6024,16 +6219,16 @@
     // shared meal timeline builder so meal derivation stays outside the charts.
     function c1_buildMealSeries(logs, profile, sim, window = {}) {
       const now = window.nowMs ?? Date.now();
-      const startMs = window.startMs ?? (now - 8 * 3600000);
-      const endMs = window.endMs ?? (now + 4 * 3600000);
-      const dtMin = window.dtMin ?? 5;
+      const startMs = window.startMs ?? (now - CHART_WINDOW_MS);
+      const endMs = window.endMs ?? (now + CHART_WINDOW_MS);
+      const dtMin = window.dtMin ?? CHART_DT_MINUTES;
       const timeline = c5_buildMealTimeline(logs, sim, startMs, endMs, dtMin);
       const inputsByTime = new Map();
       timeline.inputPoints.forEach(pt => {
         if (!inputsByTime.has(pt.x)) inputsByTime.set(pt.x, []);
         inputsByTime.get(pt.x).push(pt);
       });
-      return timeline.totalRate.map((pt, idx) => ({
+      return timeline.totalRate.map((pt, idx) => normalizeMetricTimePoint({
         t: pt.x,
         value: safeNum(pt.y, 0),
         carbRate: safeNum(timeline.carbRate[idx]?.y, 0),
@@ -6043,6 +6238,10 @@
           R_c: safeNum(timeline.R_c[idx]?.y, 0),
           mealInputs: inputsByTime.get(pt.x) || [],
         },
+      }, {
+        label: `chart1.series[${idx}]`,
+        timeKey: 't',
+        numericKeys: ['value', 'carbRate', 'fpRate'],
       }));
     }
 
@@ -6084,7 +6283,7 @@
       };
     }
 
-    function Chart1MealContributionChart({ series, ui }) {
+    function Chart1MealContributionChart({ series, ui, timeWindow }) {
       const canvasRef = React.useRef(null);
       const chartRef = React.useRef(null);
       const timeline = useMemo(() => {
@@ -6107,10 +6306,17 @@
         });
         return { totalRate, carbRate, fpRate, D_g, R_c, inputPoints };
       }, [series]);
-      const hasMealInputs = timeline.inputPoints.length > 0;
+      const hasMealData = useMemo(() => (
+        timeline.inputPoints.length > 0
+        || timeline.totalRate.some((pt, idx) =>
+          safeNum(pt.y, 0) > 0
+          || safeNum(timeline.D_g[idx]?.y, 0) > 0
+          || safeNum(timeline.R_c[idx]?.y, 0) > 0
+        )
+      ), [timeline]);
 
       React.useEffect(() => {
-        if (!canvasRef.current || !hasMealInputs) return;
+        if (!canvasRef.current || !hasMealData) return;
 
         const colors = getChartTheme(ui);
         const totalRate = timeline.totalRate.map(pt => ({ ...pt, y: glucoseRateForDisplayNumber(pt.y, ui) }));
@@ -6125,25 +6331,7 @@
             minSpan: isMmol(ui) ? 0.5 : 1,
           }
         );
-        const nowMs = Date.now();
-        const nowPlugin = {
-          id: 'nowLine_c5',
-          afterDraw(chart) {
-            const x = chart.scales.x.getPixelForValue(nowMs);
-            if (!Number.isFinite(x)) return;
-            const ctx2 = chart.ctx;
-            const { top, bottom } = chart.chartArea;
-            ctx2.save();
-            ctx2.strokeStyle = colorWithAlpha(colors.warning, 0.7, '#fbbf24');
-            ctx2.lineWidth = 1.5;
-            ctx2.setLineDash([4, 4]);
-            ctx2.beginPath(); ctx2.moveTo(x, top); ctx2.lineTo(x, bottom); ctx2.stroke();
-            ctx2.fillStyle = colorWithAlpha(colors.warning, 0.9, '#fbbf24');
-            ctx2.font = '10px "Share Tech Mono", monospace';
-            ctx2.fillText('Now', x + 4, top + 14);
-            ctx2.restore();
-          },
-        };
+        const nowPlugin = createNowLinePlugin('nowLine_c1', timeWindow?.centerMs ?? Date.now(), colors);
 
         // ── chart ──────────────────────────────────────────────────────────
         if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
@@ -6225,12 +6413,14 @@
             animation: false,
             responsive: true,
             maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
+            interaction: buildSharedTimeSeriesInteraction(),
             plugins: {
               legend: {
                 labels: { color: colors.muted, font: { family: 'Share Tech Mono', size: 10 } },
               },
               tooltip: {
+                mode: 'x',
+                intersect: false,
                 backgroundColor: colors.surface,
                 borderColor: colors.border,
                 borderWidth: 1,
@@ -6258,12 +6448,7 @@
               },
             },
             scales: {
-              x: {
-                type: 'time',
-                time: { unit: 'hour', displayFormats: { hour: 'h:mm a' } },
-                ticks: { color: colors.faint, maxTicksLimit: 8, font: { family: 'Share Tech Mono', size: 9 } },
-                grid: { color: colorWithAlpha(colors.border, 0.35, '#1e2d45') },
-              },
+              x: buildSharedChartTimeScale(colors, timeWindow),
               yRate: {
                 type: 'linear', position: 'left', min: 0, max: rateBounds.max,
                 title: { display: true, text: glucoseRateAxisTitle(ui), color: colors.muted, font: { size: 11 } },
@@ -6284,9 +6469,9 @@
         return () => {
           if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
         };
-      }, [hasMealInputs, timeline, ui]);
+      }, [hasMealData, timeline, timeWindow, ui]);
 
-      if (!hasMealInputs)
+      if (!hasMealData)
         return <div className="es"><div className="ei">🍽️</div>Log meals to see input points and fused meal response</div>;
 
       return (
@@ -6301,29 +6486,27 @@
     // The aggregator consumes these prepared outputs; it never rebuilds them.
 
     // Priority: fingerstick > cgm > bloodSugar (manual/unspecified)
-    function c4_buildFusedSeries(logs, minBG = 20, maxBG = 600) {
+    function c4_buildFusedSeries(logs, timeWindow = null, minBG = 20, maxBG = 600) {
       if (!Array.isArray(logs) || !logs.length) return [];
 
-      // Group by exact ISO timestamp string
+      // Group by normalized timestamp so imported offsets and alternate string formats
+      // collapse to one canonical observation bucket.
       const groups = new Map();
       for (const log of logs) {
         if (!log || !log.timestamp) continue;
-        const tMs = new Date(log.timestamp).getTime();
+        const tMs = getLogTimestampMs(log);
         if (!Number.isFinite(tMs)) continue;
-        const ts = log.timestamp;
-        if (!groups.has(ts)) groups.set(ts, []);
-        groups.get(ts).push(log);
+        if (!groups.has(tMs)) groups.set(tMs, []);
+        groups.get(tMs).push(log);
       }
 
-      const sorted = Array.from(groups.keys())
-        .sort((a, b) => new Date(a) - new Date(b));
+      const sorted = Array.from(groups.keys()).sort((a, b) => a - b);
 
       const series = [];
-      for (const ts of sorted) {
-        const tMs = new Date(ts).getTime();
-        if (!Number.isFinite(tMs)) continue;
+      for (const tMs of sorted) {
+        if (!isWithinChartWindow(tMs, timeWindow)) continue;
         let selected = null, type = 'manual';
-        for (const log of groups.get(ts)) {
+        for (const log of groups.get(tMs)) {
           const fs = Number(log.fingerstick);
           const cgm = Number(log.cgm);
           const bs = Number(log.bloodSugar);
@@ -6331,42 +6514,58 @@
           if (selected === null && isFinite(cgm) && cgm >= minBG && cgm <= maxBG) { selected = cgm; type = 'cgm'; }
           if (selected === null && isFinite(bs) && bs >= minBG && bs <= maxBG) { selected = bs; type = 'manual'; }
         }
-        if (selected !== null)
-          series.push({ t: tMs, glucose: selected, type, iso: ts });
+        if (selected !== null) {
+          series.push(normalizeMetricTimePoint({
+            t: tMs,
+            glucose: selected,
+            type,
+            iso: new Date(tMs).toISOString(),
+          }, {
+            label: 'chart4.fusedSeries.point',
+            timeKey: 't',
+            numericKeys: ['glucose'],
+          }));
+        }
       }
       return series;
     }
 
     // Extracts raw scatter points per measurement type for the chart overlay.
-    function c4_extractRaw(logs, minBG = 20, maxBG = 600) {
+    function c4_extractRaw(logs, timeWindow = null, minBG = 20, maxBG = 600) {
       const cgm = [], fingerstick = [], manual = [];
       for (const log of (logs || [])) {
         if (!log || !log.timestamp) continue;
-        const x = new Date(log.timestamp).getTime();
+        const x = getLogTimestampMs(log);
         if (!isFinite(x)) continue;
+        if (!isWithinChartWindow(x, timeWindow)) continue;
         const fs = Number(log.fingerstick);
         const cv = Number(log.cgm);
         const bs = Number(log.bloodSugar);
         const hasCgm = isFinite(cv) && cv >= minBG && cv <= maxBG;
         const hasFs = isFinite(fs) && fs >= minBG && fs <= maxBG;
-        if (hasFs) fingerstick.push({ x, y: fs });
-        if (hasCgm) cgm.push({ x, y: cv });
+        if (hasFs) fingerstick.push(normalizeTimePoint({ x, y: fs }));
+        if (hasCgm) cgm.push(normalizeTimePoint({ x, y: cv }));
         // manual: bloodSugar logged without a CGM or fingerstick value
         if (!hasCgm && !hasFs && isFinite(bs) && bs >= minBG && bs <= maxBG)
-          manual.push({ x, y: bs });
+          manual.push(normalizeTimePoint({ x, y: bs }));
       }
-      return { cgm, fingerstick, manual };
-    }
-
-    // Canonical Chart 4 source bundle: fused line + raw scatter series.
-    function c4_buildActualGlucoseSource(logs, minBG = 20, maxBG = 600) {
+      const byTime = (a, b) => a.x - b.x;
       return {
-        fusedSeries: c4_buildFusedSeries(logs, minBG, maxBG),
-        rawSeries: c4_extractRaw(logs, minBG, maxBG),
+        cgm: mergeSeriesByTime(cgm.sort(byTime), 'x'),
+        fingerstick: mergeSeriesByTime(fingerstick.sort(byTime), 'x'),
+        manual: mergeSeriesByTime(manual.sort(byTime), 'x'),
       };
     }
 
-    function Chart4ActualGlucoseChart({ fusedSeries, rawSeries, ui }) {
+    // Canonical Chart 4 source bundle: fused line + raw scatter series.
+    function c4_buildActualGlucoseSource(logs, timeWindow = null, minBG = 20, maxBG = 600) {
+      return {
+        fusedSeries: c4_buildFusedSeries(logs, timeWindow, minBG, maxBG),
+        rawSeries: c4_extractRaw(logs, timeWindow, minBG, maxBG),
+      };
+    }
+
+    function Chart4ActualGlucoseChart({ fusedSeries, rawSeries, ui, timeWindow }) {
       const ref = useRef(null);
       const inst = useRef(null);
       const { useState: _useState } = React;
@@ -6380,6 +6579,7 @@
 
         if (inst.current) { inst.current.destroy(); inst.current = null; }
         const colors = getChartTheme(ui);
+        const nowPlugin = createNowLinePlugin('nowLine_c4', timeWindow?.centerMs ?? Date.now(), colors);
         const fusedDisplay = fusedSeries.map(p => ({ x: p.t, y: bgValueForDisplayNumber(p.glucose, ui) }));
         const fingerstickDisplay = rawSeries.fingerstick.map(p => ({ ...p, y: bgValueForDisplayNumber(p.y, ui) }));
         const cgmDisplay = rawSeries.cgm.map(p => ({ ...p, y: bgValueForDisplayNumber(p.y, ui) }));
@@ -6392,6 +6592,7 @@
         ], ui);
 
         inst.current = new Chart(ref.current.getContext('2d'), {
+          plugins: [nowPlugin],
           data: {
             datasets: [
               {
@@ -6431,7 +6632,7 @@
           options: {
             responsive: true, maintainAspectRatio: false,
             parsing: false,
-            interaction: { mode: 'index', intersect: false },
+            interaction: buildSharedTimeSeriesInteraction(),
             plugins: {
               legend: {
                 labels: {
@@ -6439,6 +6640,8 @@
                 },
               },
               tooltip: {
+                mode: 'x',
+                intersect: false,
                 backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1,
                 titleColor: colors.text, bodyColor: colors.muted,
                 titleFont: { family: 'Share Tech Mono' },
@@ -6448,12 +6651,7 @@
               },
             },
             scales: {
-              x: {
-                type: 'time',
-                time: { unit: 'hour', displayFormats: { hour: 'HH:mm' }, tooltipFormat: 'yyyy-MM-dd HH:mm' },
-                ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 }, maxRotation: 45 },
-                grid: { color: colorWithAlpha(colors.border, 0.35, '#1e2d45') },
-              },
+              x: buildSharedChartTimeScale(colors, timeWindow),
               y: {
                 min: bgBounds.min, max: bgBounds.max,
                 title: { display: true, text: glucoseAxisTitle(ui), color: colors.orange, font: { size: 9 } },
@@ -6465,7 +6663,7 @@
         });
 
         return () => { if (inst.current) { inst.current.destroy(); inst.current = null; } };
-      }, [fusedSeries, rawSeries, ui]);
+      }, [fusedSeries, rawSeries, timeWindow, ui]);
 
       // Toggle visibility without rebuilding
       useEffect(() => {
@@ -6518,12 +6716,16 @@
 
     // Canonical Chart 3 source contract:
     //   [{ t, k_abs_mult, seff_mult, hepatic_factor, U_scalar }]
-    function c3_buildModifierSeries(logs, profile, sim, liveMod = null, nowMs = Date.now()) {
+    function c3_buildModifierSeries(logs, profile, sim, liveMod = null, timeWindow = null) {
+      const centerMs = timeWindow?.centerMs ?? Date.now();
       const sorted = [...logs]
-        .filter(l => l.bloodSugar != null && Number.isFinite(new Date(l.timestamp).getTime()))
-        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-      const series = sorted.map((log, i) => {
-        const tMs = new Date(log.timestamp).getTime();
+        .map(log => ({ ...log, timestampMs: getLogTimestampMs(log) }))
+        .filter(l => l.bloodSugar != null && Number.isFinite(l.timestampMs))
+        .sort((a, b) => a.timestampMs - b.timestampMs);
+      const series = [];
+      sorted.forEach((log, i) => {
+        const tMs = log.timestampMs;
+        if (!isWithinChartWindow(tMs, timeWindow)) return;
         const tDate = new Date(tMs);
         const svAt = computeStateVars(sorted.slice(0, i + 1), profile, sim);
         const tHr = tDate.getHours() + tDate.getMinutes() / 60;
@@ -6541,80 +6743,110 @@
           fiberClass: log.fiberClass || 0,
         };
         const mod = computeModifiers(inpAt, svAt, profile, sim);
-        return {
+        series.push(normalizeMetricTimePoint({
           t: tMs,
           k_abs_mult: mod.kabs_mult ?? 1,
           seff_mult: mod.seff_mult ?? 1,
           hepatic_factor: mod.hepaticOutputFactor ?? 1,
           U_scalar: mod.U_scalar ?? 1,
           meta: { current: false },
-        };
+        }, {
+          label: `chart3.series[${i}]`,
+          timeKey: 't',
+          numericKeys: ['k_abs_mult', 'seff_mult', 'hepatic_factor', 'U_scalar'],
+        }));
       });
       if (liveMod) {
-        series.push({
-          t: nowMs,
+        series.push(normalizeMetricTimePoint({
+          t: centerMs,
           k_abs_mult: liveMod.kabs_mult ?? 1,
           seff_mult: liveMod.seff_mult ?? 1,
           hepatic_factor: liveMod.hepaticOutputFactor ?? 1,
           U_scalar: liveMod.U_scalar ?? 1,
           meta: { current: true },
-        });
+        }, {
+          label: 'chart3.series.current',
+          timeKey: 't',
+          numericKeys: ['k_abs_mult', 'seff_mult', 'hepatic_factor', 'U_scalar'],
+        }));
       }
-      return series;
+      return mergeSeriesByTime(series.sort((a, b) => a.t - b.t), 't', (prev, next) => (
+        next?.meta?.current ? next : prev
+      ));
     }
 
-    function Chart3ModifierChart({ series, ui }) {
+    function Chart3ModifierChart({ series, ui, timeWindow }) {
       const ref = useRef(null);
       const inst = useRef(null);
 
       useEffect(() => {
         if (!ref.current) return;
         const colors = getChartTheme(ui);
+        const nowPlugin = createNowLinePlugin('nowLine_c3', timeWindow?.centerMs ?? Date.now(), colors);
+        const sorted = [...(series || [])].sort((a, b) => a.t - b.t);
+        const withTime = metric => sorted.map(pt => ({
+          x: pt.t,
+          y: +safeNum(metric(pt), 1).toFixed(3),
+          current: !!pt.meta?.current,
+        }));
+        const kAbsVals = withTime(pt => pt.k_abs_mult);
+        const sEffVals = withTime(pt => pt.seff_mult);
+        const hepaticVals = withTime(pt => pt.hepatic_factor);
+        const uVals = withTime(pt => pt.U_scalar);
 
-        const sorted = (series || []).slice(-41);
-        const labels = [], kAbsVals = [], sEffVals = [], hepaticVals = [], uVals = [];
-
-        sorted.forEach(pt => {
-          labels.push(pt.meta?.current ? 'Now ★' : fmtT(pt.t));
-          kAbsVals.push(+safeNum(pt.k_abs_mult, 1).toFixed(3));
-          sEffVals.push(+safeNum(pt.seff_mult, 1).toFixed(3));
-          hepaticVals.push(+safeNum(pt.hepatic_factor, 1).toFixed(3));
-          uVals.push(+safeNum(pt.U_scalar, 1).toFixed(3));
-        });
-
-        if (!labels.length) return;
+        if (!sorted.length) return;
         if (inst.current) { inst.current.destroy(); inst.current = null; }
 
         inst.current = new Chart(ref.current.getContext('2d'), {
           type: 'line',
+          plugins: [nowPlugin],
           data: {
-            labels,
             datasets: [
               {
                 label: 'k_abs (absorption)', data: kAbsVals,
                 borderColor: colors.accent, backgroundColor: 'transparent',
-                borderWidth: 2, pointRadius: 3, tension: 0.3, yAxisID: 'yMod',
+                borderWidth: 2,
+                pointRadius: ctx => ctx.raw?.current ? 5 : 3,
+                pointHoverRadius: ctx => ctx.raw?.current ? 7 : 5,
+                tension: 0.3,
+                yAxisID: 'yMod',
+                parsing: false,
               },
               {
                 label: 'S_eff (sensitivity)', data: sEffVals,
                 borderColor: colors.purple, backgroundColor: 'transparent',
-                borderWidth: 2, pointRadius: 3, tension: 0.3, yAxisID: 'yMod',
+                borderWidth: 2,
+                pointRadius: ctx => ctx.raw?.current ? 5 : 3,
+                pointHoverRadius: ctx => ctx.raw?.current ? 7 : 5,
+                tension: 0.3,
+                yAxisID: 'yMod',
+                parsing: false,
               },
               {
                 label: 'Hepatic factor', data: hepaticVals,
                 borderColor: colors.warning, backgroundColor: 'transparent',
-                borderWidth: 2, pointRadius: 3, tension: 0.3, yAxisID: 'yMod',
+                borderWidth: 2,
+                pointRadius: ctx => ctx.raw?.current ? 5 : 3,
+                pointHoverRadius: ctx => ctx.raw?.current ? 7 : 5,
+                tension: 0.3,
+                yAxisID: 'yMod',
+                parsing: false,
               },
               {
                 label: 'U scalar (uncertainty)', data: uVals,
                 borderColor: colors.danger, backgroundColor: 'transparent',
-                borderWidth: 2, pointRadius: 3, tension: 0.3, yAxisID: 'yU',
+                borderWidth: 2,
+                pointRadius: ctx => ctx.raw?.current ? 5 : 3,
+                pointHoverRadius: ctx => ctx.raw?.current ? 7 : 5,
+                tension: 0.3,
+                yAxisID: 'yU',
+                parsing: false,
               },
             ],
           },
           options: {
-            responsive: true, maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
+            responsive: true, maintainAspectRatio: false, parsing: false,
+            interaction: buildSharedTimeSeriesInteraction(),
             plugins: {
               legend: {
                 labels: {
@@ -6623,17 +6855,19 @@
                 },
               },
               tooltip: {
+                mode: 'x',
+                intersect: false,
                 backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1,
                 titleColor: colors.text, bodyColor: colors.muted,
                 titleFont: { family: 'Share Tech Mono' },
-                callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(3)}` },
+                callbacks: {
+                  title: items => items.length ? fmtDT(items[0].parsed.x) : '',
+                  label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(3)}`,
+                },
               },
             },
             scales: {
-              x: {
-                ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 }, maxRotation: 45 },
-                grid: { color: colorWithAlpha(colors.border, 0.35, '#1e2d45') },
-              },
+              x: buildSharedChartTimeScale(colors, timeWindow),
               yMod: {
                 type: 'linear', position: 'left', min: 0, max: 2,
                 title: { display: true, text: '× baseline', color: colors.muted, font: { size: 9 } },
@@ -6651,7 +6885,7 @@
         });
 
         return () => { if (inst.current) { inst.current.destroy(); inst.current = null; } };
-      }, [series, ui]);
+      }, [series, timeWindow, ui]);
 
       if (!(series || []).length)
         return <div className="es"><div className="ei">🔧</div>No modifier source available</div>;
@@ -6671,53 +6905,110 @@
       const seff_mult = liveMod?.seff_mult ?? 1;
       return projection
         .filter(pt => pt.Qp != null)
-        .map(pt => ({
+        .map((pt, i) => normalizeMetricTimePoint({
           t: nowMs + pt.t * 3_600_000,                            // absolute ms
           value: -(kS * seff_mult * pt.Qp) / 60,                  // mg/dL/min, negative
           qp: pt.Qp ?? 0,
           meta: { glucose: pt.G ?? null },
+        }, {
+          label: `chart2.series[${i}]`,
+          timeKey: 't',
+          numericKeys: ['value', 'qp'],
         }));
     }
 
-    function Chart2InsulinEffectChart({ logs, projection, series, profile, sim, ui }) {
+    function c2_buildInsulinChartData(logs, projection, series, timeWindow = null, nowMs = Date.now()) {
+      const bgHistory = mergeSeriesByTime((logs || [])
+        .map(log => {
+          const x = getLogTimestampMs(log);
+          const y = Number(log?.bloodSugar);
+          if (!Number.isFinite(x) || !Number.isFinite(y) || !isWithinChartWindow(x, timeWindow)) return null;
+          return { ...normalizeTimePoint({ x, y }), rawBg: y };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.x - b.x), 'x');
+
+      const doseBars = mergeSeriesByTime((logs || [])
+        .map(log => {
+          const x = getLogTimestampMs(log);
+          const y = safeNum(log?.insulinDose, 0);
+          if (!Number.isFinite(x) || y <= 0 || !isWithinChartWindow(x, timeWindow)) return null;
+          return normalizeTimePoint({ x, y });
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.x - b.x), 'x');
+
+      const projectedBgCore = mergeSeriesByTime((projection || [])
+        .map(pt => {
+          const x = nowMs + safeNum(pt?.t, 0) * MS_PER_HOUR;
+          const y = Number(pt?.G);
+          if (!Number.isFinite(x) || !Number.isFinite(y) || !isWithinChartWindow(x, timeWindow)) return null;
+          return normalizeTimePoint({ x, y });
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.x - b.x), 'x');
+
+      const projectedBg = [...projectedBgCore];
+      const lastHistoryPoint = bgHistory.at(-1);
+      const firstProjectionPoint = projectedBgCore[0];
+      if (lastHistoryPoint && firstProjectionPoint) {
+        if (lastHistoryPoint.x < firstProjectionPoint.x) {
+          projectedBg.unshift({ x: lastHistoryPoint.x, y: lastHistoryPoint.y, rawBg: lastHistoryPoint.rawBg });
+        } else if (lastHistoryPoint.x === firstProjectionPoint.x) {
+          projectedBg[0] = { x: firstProjectionPoint.x, y: lastHistoryPoint.y, rawBg: lastHistoryPoint.rawBg };
+        }
+      }
+
+      const seriesByTime = new Map((series || [])
+        .map(pt => [Number(pt?.t), pt])
+        .filter(([t]) => Number.isFinite(t)));
+
+      const projectedQp = mergeSeriesByTime((projection || [])
+        .map(pt => {
+          const x = nowMs + safeNum(pt?.t, 0) * MS_PER_HOUR;
+          const y = Number(seriesByTime.get(x)?.qp ?? pt?.Qp);
+          if (!Number.isFinite(x) || !Number.isFinite(y) || !isWithinChartWindow(x, timeWindow)) return null;
+          return normalizeTimePoint({ x, y });
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.x - b.x), 'x');
+
+      const loweringRate = mergeSeriesByTime((series || [])
+        .map(pt => {
+          const x = Number(pt?.t);
+          const y = Number(pt?.value);
+          if (!Number.isFinite(x) || !Number.isFinite(y) || !isWithinChartWindow(x, timeWindow)) return null;
+          return normalizeTimePoint({ x, y });
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.x - b.x), 'x');
+
+      return { bgHistory, doseBars, projectedBg, projectedQp, loweringRate };
+    }
+
+    function Chart2InsulinEffectChart({ chartData, ui, timeWindow }) {
       const ref = useRef(null);
       const inst = useRef(null);
 
       useEffect(() => {
         if (!ref.current) return;
         const colors = getChartTheme(ui);
-
-        const hist = [...logs]
-          .filter(l => l.bloodSugar != null)
-          .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-          .slice(-30);
-
-        const projectionBaseMs = series?.[0]?.t ?? Date.now();
-        const now = new Date(projectionBaseMs);
-        const histLabels = hist.map(l => fmtT(l.timestamp));
-        const projLabels = projection.map(pt => {
-          const d = new Date(now.getTime() + pt.t * 3_600_000);
-          return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        });
-        const allLabels = [...histLabels, 'Now', ...projLabels.slice(1)];
-
-        const histBG = hist.map(l => bgValueForDisplayNumber(l.bloodSugar, ui));
-        const projBG = projection.map(p => bgValueForDisplayNumber(p.G, ui));
-        const bridgePad = hist.length > 0
-          ? [...new Array(hist.length - 1).fill(null), bgValueForDisplayNumber(hist.at(-1)?.bloodSugar ?? null, ui)]
-          : [];
-        const nullPad = new Array(hist.length).fill(null);
-
-        const seriesByTime = new Map((series || []).map(pt => [pt.t, pt]));
-        const projRate = projection.map(pt => {
-          const absT = projectionBaseMs + pt.t * 3_600_000;
-          return glucoseRateForDisplayNumber(seriesByTime.get(absT)?.value ?? null, ui);
-        });
-        const projQp = projection.map(pt => {
-          const absT = projectionBaseMs + pt.t * 3_600_000;
-          return seriesByTime.get(absT)?.qp ?? pt.Qp ?? null;
-        });
-        const rateBounds = computeNumericAxisBounds(projRate, {
+        const nowPlugin = createNowLinePlugin('nowLine_c2', timeWindow?.centerMs ?? Date.now(), colors);
+        const histBg = (chartData?.bgHistory || []).map(pt => ({
+          ...pt,
+          y: bgValueForDisplayNumber(pt.y, ui),
+        })).filter(pt => pt.y != null);
+        const doseBars = chartData?.doseBars || [];
+        const projectedBg = (chartData?.projectedBg || []).map(pt => ({
+          ...pt,
+          y: bgValueForDisplayNumber(pt.y, ui),
+        })).filter(pt => pt.y != null);
+        const projQp = chartData?.projectedQp || [];
+        const projRate = (chartData?.loweringRate || []).map(pt => ({
+          ...pt,
+          y: glucoseRateForDisplayNumber(pt.y, ui),
+        })).filter(pt => pt.y != null);
+        const rateBounds = computeNumericAxisBounds(projRate.map(pt => pt.y), {
           floor: glucoseRateForDisplayNumber(-3, ui),
           ceil: glucoseRateForDisplayNumber(0.5, ui),
           step: isMmol(ui) ? 0.05 : 0.5,
@@ -6725,58 +7016,70 @@
           includeZero: true,
           minSpan: isMmol(ui) ? 0.2 : 1,
         });
+        const insulinBounds = computeNumericAxisBounds([
+          ...doseBars.map(pt => pt.y),
+          ...projQp.map(pt => pt.y),
+        ], {
+          floor: 0,
+          step: 1,
+          pad: 0.5,
+          minSpan: 2,
+        });
+        const bgBounds = computeBgAxisBounds([
+          ...histBg.map(pt => pt.y),
+          ...projectedBg.map(pt => pt.y),
+        ], ui);
 
         if (inst.current) { inst.current.destroy(); inst.current = null; }
 
         inst.current = new Chart(ref.current.getContext('2d'), {
+          plugins: [nowPlugin],
           data: {
-            labels: allLabels,
             datasets: [
-              // BG history
               {
                 type: 'line', label: 'BG history',
-                data: [...histBG, ...new Array(projection.length).fill(null)],
+                data: histBg,
                 borderColor: colors.text, backgroundColor: colorWithAlpha(colors.text, 0.04, '#e2e8f0'),
                 borderWidth: 2, pointRadius: 3, tension: 0.35, fill: true, yAxisID: 'yBG',
-                pointBackgroundColor: hist.map(l => bgColor(l.bloodSugar)),
+                pointBackgroundColor: histBg.map(pt => bgColor(pt.rawBg)),
                 pointBorderColor: colors.bg, pointBorderWidth: 1,
+                parsing: false,
               },
-              // Projected BG
               {
                 type: 'line', label: 'Projected BG',
-                data: [...bridgePad, ...projBG],
+                data: projectedBg,
                 borderColor: colorWithAlpha(colors.text, 0.45, '#e2e8f0'), backgroundColor: 'transparent',
                 borderWidth: 1.5, borderDash: [5, 4], pointRadius: 0,
                 tension: 0.3, fill: false, yAxisID: 'yBG',
+                parsing: false,
               },
-              // Historical insulin doses
               {
                 type: 'bar', label: 'Dose (u)',
-                data: [...hist.map(l => l.insulinDose || null), ...new Array(projection.length).fill(null)],
+                data: doseBars,
                 backgroundColor: colorWithAlpha(colors.purple, 0.45, '#a78bfa'), borderColor: colors.purple,
-                borderWidth: 1, yAxisID: 'yIns',
+                borderWidth: 1, yAxisID: 'yIns', parsing: false,
+                barThickness: 8,
               },
-              // Active plasma insulin (Qp) over projection
               {
                 type: 'line', label: 'Active plasma insulin (u)',
-                data: [...nullPad, ...projQp],
+                data: projQp,
                 borderColor: colors.purple, backgroundColor: 'transparent',
                 borderWidth: 1.5, borderDash: [3, 3], pointRadius: 0,
                 tension: 0.4, fill: false, yAxisID: 'yIns',
+                parsing: false,
               },
-              // Glucose lowering rate
               {
                 type: 'line', label: `Lowering rate (${glucoseRateUnitLabel(ui)})`,
-                data: [...nullPad, ...projRate],
+                data: projRate,
                 borderColor: colors.teal, backgroundColor: colorWithAlpha(colors.teal, 0.12, '#14b8a6'),
                 borderWidth: 2, fill: true, pointRadius: 0,
-                tension: 0.4, yAxisID: 'yRate',
+                tension: 0.4, yAxisID: 'yRate', parsing: false,
               },
             ],
           },
           options: {
-            responsive: true, maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
+            responsive: true, maintainAspectRatio: false, parsing: false,
+            interaction: buildSharedTimeSeriesInteraction(),
             plugins: {
               legend: {
                 labels: {
@@ -6784,10 +7087,13 @@
                 },
               },
               tooltip: {
+                mode: 'x',
+                intersect: false,
                 backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1,
                 titleColor: colors.text, bodyColor: colors.muted,
                 titleFont: { family: 'Share Tech Mono' },
                 callbacks: {
+                  title: items => items.length ? fmtDT(items[0].parsed.x) : '',
                   label: ctx => {
                     const v = ctx.parsed.y;
                     if (v == null) return null;
@@ -6802,12 +7108,9 @@
               },
             },
             scales: {
-              x: {
-                ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 }, maxRotation: 45 },
-                grid: { color: colorWithAlpha(colors.border, 0.35, '#1e2d45') },
-              },
+              x: buildSharedChartTimeScale(colors, timeWindow),
               yBG: {
-                type: 'linear', position: 'left',
+                type: 'linear', position: 'left', min: bgBounds.min, max: bgBounds.max,
                 title: { display: true, text: glucoseAxisTitle(ui), color: colors.text, font: { size: 9 } },
                 ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 }, callback: v => formatChartTick(v, ui) },
                 grid: { color: colorWithAlpha(colors.border, 0.35, '#1e2d45') },
@@ -6817,7 +7120,7 @@
                 title: { display: true, text: 'Insulin (u)', color: colors.purple, font: { size: 9 } },
                 ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 } },
                 grid: { drawOnChartArea: false },
-                min: 0,
+                min: insulinBounds.min, max: insulinBounds.max,
               },
               yRate: {
                 type: 'linear', position: 'right',
@@ -6831,9 +7134,11 @@
         });
 
         return () => { if (inst.current) { inst.current.destroy(); inst.current = null; } };
-      }, [logs, projection, series, profile, sim, ui]);
+      }, [chartData, timeWindow, ui]);
 
-      if (!logs.filter(l => l.bloodSugar != null).length)
+      if (!(chartData?.loweringRate || []).length
+        && !(chartData?.bgHistory || []).length
+        && !(chartData?.doseBars || []).length)
         return <div className="es"><div className="ei">💉</div>Log a dose to see insulin effect</div>;
       return <div className="chwrap" style={{ height: '300px' }}><canvas ref={ref} /></div>;
     }
@@ -6942,17 +7247,16 @@
       return { combined, bands };
     }
 
-    function Chart5AggregatorChart({ chart1Series, chart2Series, chart3Series, chart4Series, chart4Raw, profile, sim, ui }) {
+    function Chart5AggregatorChart({ chart1Series, chart2Series, chart3Series, chart4Series, chart4Raw, profile, sim, ui, timeWindow }) {
       const ref = useRef(null);
       const inst = useRef(null);
 
       useEffect(() => {
         if (!ref.current) return;
         const colors = getChartTheme(ui);
-
-        const now = chart2Series?.[0]?.t ?? chart4Series?.at(-1)?.t ?? Date.now();
-        const start = now - 4 * 3600000;
-        const end = now + 2 * 3600000;
+        const nowPlugin = createNowLinePlugin('nowLine_c5', timeWindow?.centerMs ?? Date.now(), colors);
+        const start = timeWindow?.windowStartMs ?? (Date.now() - CHART_WINDOW_MS);
+        const end = timeWindow?.windowEndMs ?? (Date.now() + CHART_WINDOW_MS);
         if (!chart1Series.length || !chart2Series.length || !chart3Series.length || !chart4Series.length) return;
 
         // Pull live values from profile/sim so the aggregator matches app settings.
@@ -6963,7 +7267,7 @@
         const clampMin = profile?.lowBG ?? 40;
 
         const result = c5_aggregate({
-          startTime: start, endTime: end, dtMinutes: 5,
+          startTime: start, endTime: end, dtMinutes: timeWindow?.dtMinutes ?? CHART_DT_MINUTES,
           chart1Series, chart2Series, chart3Series, chart4Series,
           cfg: {
             G_prod_base: 0.12, k_basal, targetBG,
@@ -7004,6 +7308,7 @@
 
         inst.current = new Chart(ref.current.getContext('2d'), {
           type: 'line',
+          plugins: [nowPlugin],
           data: {
             datasets: [
               {
@@ -7069,7 +7374,7 @@
           options: {
             responsive: true, maintainAspectRatio: false,
             parsing: false,
-            interaction: { mode: 'index', intersect: false },
+            interaction: buildSharedTimeSeriesInteraction(),
             plugins: {
               legend: {
                 labels: {
@@ -7078,6 +7383,8 @@
                 },
               },
               tooltip: {
+                mode: 'x',
+                intersect: false,
                 backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1,
                 titleColor: colors.text, bodyColor: colors.muted,
                 titleFont: { family: 'Share Tech Mono' },
@@ -7094,12 +7401,7 @@
               },
             },
             scales: {
-              x: {
-                type: 'time',
-                time: { unit: 'hour', displayFormats: { hour: 'HH:mm' }, tooltipFormat: 'yyyy-MM-dd HH:mm' },
-                ticks: { color: colors.faint, font: { family: 'Share Tech Mono', size: 9 }, maxRotation: 45 },
-                grid: { color: colorWithAlpha(colors.border, 0.35, '#1e2d45') },
-              },
+              x: buildSharedChartTimeScale(colors, timeWindow),
               yBG: {
                 type: 'linear', position: 'left', min: bgBounds.min, max: bgBounds.max,
                 title: { display: true, text: glucoseAxisTitle(ui), color: colors.accent, font: { size: 9 } },
@@ -7117,7 +7419,7 @@
         });
 
         return () => { if (inst.current) { inst.current.destroy(); inst.current = null; } };
-      }, [chart1Series, chart2Series, chart3Series, chart4Series, chart4Raw, profile, sim, ui]);
+      }, [chart1Series, chart2Series, chart3Series, chart4Series, chart4Raw, profile, sim, timeWindow, ui]);
 
       if (!chart4Series.length)
         return <div className="es"><div className="ei">📈</div>Need Chart 4 glucose observations to anchor forecast</div>;
@@ -7134,83 +7436,101 @@
     // Chart 1-4 render pipeline-owned series.
     // Chart 5 aggregates pipeline-owned series only.
     // -- E6b. Unified chart data pipeline -----------------------------------------
-    function validateTimeSeries(name, series, requiredKeys = ['t']) {
-      if (!Array.isArray(series)) throw new Error(`${name} must be an array`);
-
-      let prevT = -Infinity;
-      for (let i = 0; i < series.length; i++) {
-        const pt = series[i];
-        if (!pt || typeof pt !== 'object') throw new Error(`${name}[${i}] must be an object`);
-        for (const key of requiredKeys) {
-          if (!(key in pt)) throw new Error(`${name}[${i}] missing ${key}`);
-        }
-        const t = Number(pt.t);
-        if (!Number.isFinite(t)) throw new Error(`${name}[${i}].t not finite`);
-        if (t < prevT) throw new Error(`${name} not sorted ascending`);
-        prevT = t;
-      }
-    }
-
-    function validateScatterSeries(name, series) {
-      if (!Array.isArray(series)) throw new Error(`${name} must be an array`);
+    function validateTimeSeries(series, label = 'series', {
+      timeKey = 't',
+      valueKeys = [],
+    } = {}) {
+      if (!Array.isArray(series)) throw new Error(`${label} must be an array`);
 
       let prevX = -Infinity;
       for (let i = 0; i < series.length; i++) {
         const pt = series[i];
-        if (!pt || typeof pt !== 'object') throw new Error(`${name}[${i}] must be an object`);
-        const x = Number(pt.x);
-        const y = Number(pt.y);
-        if (!Number.isFinite(x)) throw new Error(`${name}[${i}].x not finite`);
-        if (!Number.isFinite(y)) throw new Error(`${name}[${i}].y not finite`);
-        if (x < prevX) throw new Error(`${name} not sorted ascending`);
+        if (!isPlainObject(pt)) throw new Error(`${label}[${i}] must be an object`);
+
+        const x = Number(pt[timeKey]);
+        if (!Number.isFinite(x)) throw new Error(`${label}[${i}].${timeKey} is invalid`);
+
+        valueKeys.forEach(key => {
+          if (!Number.isFinite(Number(pt[key]))) {
+            throw new Error(`${label}[${i}].${key} is invalid`);
+          }
+        });
+
+        if (x < prevX) throw new Error(`${label} is not sorted ascending at index ${i}`);
+        if (x === prevX) throw new Error(`${label} has duplicate ${timeKey} at index ${i}`);
         prevX = x;
       }
+
+      return true;
     }
 
-    function freezeValue(value) {
-      if (Array.isArray(value)) return Object.freeze(value.map(freezeValue));
-      if (value && typeof value === 'object') {
-        const frozen = {};
-        Object.keys(value).forEach(key => { frozen[key] = freezeValue(value[key]); });
-        return Object.freeze(frozen);
-      }
-      return value;
-    }
-
-    function freezeArray(arr) {
-      return Object.freeze((arr || []).map(item => freezeValue(item)));
-    }
-
-    function freezeRawSeries(raw) {
-      return Object.freeze({
-        cgm: freezeArray(raw?.cgm || []),
-        fingerstick: freezeArray(raw?.fingerstick || []),
-        manual: freezeArray(raw?.manual || []),
-      });
+    function validateScatterSeries(series, label = 'series') {
+      return validateTimeSeries(series, label, { timeKey: 'x', valueKeys: ['y'] });
     }
 
     function validateChartDataPipeline(pipeline) {
-      validateTimeSeries('chart1.series', pipeline.chart1.series, ['t', 'value']);
-      validateTimeSeries('chart2.series', pipeline.chart2.series, ['t', 'value']);
-      validateTimeSeries('chart3.series', pipeline.chart3.series, ['t']);
-      validateTimeSeries('chart4.fusedSeries', pipeline.chart4.fusedSeries, ['t', 'glucose']);
-      validateScatterSeries('chart4.rawSeries.cgm', pipeline.chart4.rawSeries.cgm);
-      validateScatterSeries('chart4.rawSeries.fingerstick', pipeline.chart4.rawSeries.fingerstick);
-      validateScatterSeries('chart4.rawSeries.manual', pipeline.chart4.rawSeries.manual);
+      validateTimeSeries(pipeline.chart1.series, 'chart1.series', {
+        timeKey: 't',
+        valueKeys: ['value', 'carbRate', 'fpRate'],
+      });
+      pipeline.chart1.series.forEach((pt, i) => {
+        validateScatterSeries(pt?.meta?.mealInputs || [], `chart1.series[${i}].meta.mealInputs`);
+      });
+
+      validateTimeSeries(pipeline.chart2.series, 'chart2.series', {
+        timeKey: 't',
+        valueKeys: ['value', 'qp'],
+      });
+      validateScatterSeries(pipeline.chart2.chartData?.bgHistory || [], 'chart2.chartData.bgHistory');
+      validateScatterSeries(pipeline.chart2.chartData?.doseBars || [], 'chart2.chartData.doseBars');
+      validateScatterSeries(pipeline.chart2.chartData?.projectedBg || [], 'chart2.chartData.projectedBg');
+      validateScatterSeries(pipeline.chart2.chartData?.projectedQp || [], 'chart2.chartData.projectedQp');
+      validateScatterSeries(pipeline.chart2.chartData?.loweringRate || [], 'chart2.chartData.loweringRate');
+
+      validateTimeSeries(pipeline.chart3.series, 'chart3.series', {
+        timeKey: 't',
+        valueKeys: ['k_abs_mult', 'seff_mult', 'hepatic_factor', 'U_scalar'],
+      });
+      validateTimeSeries(pipeline.chart4.fusedSeries, 'chart4.fusedSeries', {
+        timeKey: 't',
+        valueKeys: ['glucose'],
+      });
+      validateScatterSeries(pipeline.chart4.rawSeries.cgm, 'chart4.rawSeries.cgm');
+      validateScatterSeries(pipeline.chart4.rawSeries.fingerstick, 'chart4.rawSeries.fingerstick');
+      validateScatterSeries(pipeline.chart4.rawSeries.manual, 'chart4.rawSeries.manual');
     }
 
-    function deepFreezeChartPipeline(pipeline) {
-      const meta = freezeValue(pipeline.meta);
-      const chart1Series = freezeArray(pipeline.chart1.series);
-      const chart2Series = freezeArray(pipeline.chart2.series);
-      const chart3Series = freezeArray(pipeline.chart3.series);
-      const chart4Series = freezeArray(pipeline.chart4.fusedSeries);
-      const chart4Raw = freezeRawSeries(pipeline.chart4.rawSeries);
+    // Keep wrapper objects immutable without touching the large series arrays.
+    function finalizeChartRawSeries(raw) {
+      return Object.freeze({
+        cgm: Array.isArray(raw?.cgm) ? raw.cgm : [],
+        fingerstick: Array.isArray(raw?.fingerstick) ? raw.fingerstick : [],
+        manual: Array.isArray(raw?.manual) ? raw.manual : [],
+      });
+    }
+
+    function finalizeChart2Data(data) {
+      return Object.freeze({
+        bgHistory: Array.isArray(data?.bgHistory) ? data.bgHistory : [],
+        doseBars: Array.isArray(data?.doseBars) ? data.doseBars : [],
+        projectedBg: Array.isArray(data?.projectedBg) ? data.projectedBg : [],
+        projectedQp: Array.isArray(data?.projectedQp) ? data.projectedQp : [],
+        loweringRate: Array.isArray(data?.loweringRate) ? data.loweringRate : [],
+      });
+    }
+
+    function finalizeChartDataPipeline(pipeline) {
+      const chart1Series = Array.isArray(pipeline.chart1?.series) ? pipeline.chart1.series : [];
+      const chart2Series = Array.isArray(pipeline.chart2?.series) ? pipeline.chart2.series : [];
+      const chart2Data = finalizeChart2Data(pipeline.chart2?.chartData);
+      const chart3Series = Array.isArray(pipeline.chart3?.series) ? pipeline.chart3.series : [];
+      const chart4Series = Array.isArray(pipeline.chart4?.fusedSeries) ? pipeline.chart4.fusedSeries : [];
+      const chart4Raw = finalizeChartRawSeries(pipeline.chart4?.rawSeries || pipeline.aggregator?.chart4Raw);
 
       return Object.freeze({
-        meta,
+        meta: Object.freeze({ ...(pipeline.meta || {}) }),
         chart1: Object.freeze({ series: chart1Series }),
-        chart2: Object.freeze({ series: chart2Series }),
+        chart2: Object.freeze({ series: chart2Series, chartData: chart2Data }),
         chart3: Object.freeze({ series: chart3Series }),
         chart4: Object.freeze({
           fusedSeries: chart4Series,
@@ -7227,17 +7547,25 @@
     }
 
     function emptyChartDataPipeline(nowMs = Date.now(), error = null) {
-      return deepFreezeChartPipeline({
+      const timeWindow = getChartTimeWindow(nowMs);
+      return finalizeChartDataPipeline({
         meta: {
+          ...timeWindow,
           nowMs,
-          windowStartMs: nowMs,
-          windowEndMs: nowMs,
-          dtMinutes: 5,
           version: 1,
           error,
         },
         chart1: { series: [] },
-        chart2: { series: [] },
+        chart2: {
+          series: [],
+          chartData: {
+            bgHistory: [],
+            doseBars: [],
+            projectedBg: [],
+            projectedQp: [],
+            loweringRate: [],
+          },
+        },
         chart3: { series: [] },
         chart4: {
           fusedSeries: [],
@@ -7253,22 +7581,24 @@
       });
     }
 
+    const EMPTY_CHART_PIPELINE = emptyChartDataPipeline(0);
+
     function buildChartDataPipeline({ logs, projection, profile, sim, liveMod, nowMs = Date.now() }) {
       try {
-        // Freeze the render-cycle time origin once so all source builders that depend on
+        // Capture the render-cycle time origin once so all source builders that depend on
         // "now" share the exact same timestamp and produce atomically aligned series.
-        const dtMinutes = 5;
-        const windowStartMs = nowMs - 8 * 3600000;
-        const windowEndMs = nowMs + 4 * 3600000;
+        const timeWindow = getChartTimeWindow(nowMs);
+        const { centerMs, windowStartMs, windowEndMs, dtMinutes, projectionHours } = timeWindow;
         const chart1Series = c1_buildMealSeries(logs, profile, sim, {
-          nowMs,
-          windowStartMs,
-          windowEndMs,
+          nowMs: centerMs,
+          startMs: windowStartMs,
+          endMs: windowEndMs,
           dtMin: dtMinutes,
         });
-        const chart2Series = c2_buildInsulinSeries(projection, profile, sim, liveMod, nowMs);
-        const chart3Series = c3_buildModifierSeries(logs, profile, sim, liveMod, nowMs);
-        const actualGlucoseSource = c4_buildActualGlucoseSource(logs);
+        const chart2Series = c2_buildInsulinSeries(projection, profile, sim, liveMod, centerMs);
+        const chart2Data = c2_buildInsulinChartData(logs, projection, chart2Series, timeWindow, centerMs);
+        const chart3Series = c3_buildModifierSeries(logs, profile, sim, liveMod, timeWindow);
+        const actualGlucoseSource = c4_buildActualGlucoseSource(logs, timeWindow);
         const chart4Raw = {
           cgm: actualGlucoseSource.rawSeries?.cgm || [],
           fingerstick: actualGlucoseSource.rawSeries?.fingerstick || [],
@@ -7276,10 +7606,10 @@
         };
         const pipeline = {
           meta: {
+            ...timeWindow,
             nowMs,
-            windowStartMs,
-            windowEndMs,
-            dtMinutes,
+            centerMs,
+            projectionHours,
             version: 1,
           },
           chart1: {
@@ -7287,6 +7617,7 @@
           },
           chart2: {
             series: chart2Series,
+            chartData: chart2Data,
           },
           chart3: {
             series: chart3Series,
@@ -7305,7 +7636,8 @@
         };
 
         validateChartDataPipeline(pipeline);
-        return deepFreezeChartPipeline(pipeline);
+        if (CHART_PIPELINE_DEBUG) console.info('Chart pipeline validated', pipeline.meta);
+        return finalizeChartDataPipeline(pipeline);
       } catch (err) {
         console.warn('Chart pipeline failed; falling back to empty chart state.', err);
         return emptyChartDataPipeline(nowMs, err?.message || 'chart-pipeline-failed');
@@ -7397,7 +7729,7 @@
       const [sim, setSim] = useState(() => loadStored(STORE_SIM, DEFAULT_SIM_PARAMS));
       const [ui, setUi] = useState(() => loadStored(STORE_UI, DEFAULT_UI_STATE));
       const [logs, setLogs] = useState(() => {
-        try { return JSON.parse(localStorage.getItem(STORE_LOGS) || '[]').map((l, i) => normalizeLogEntry(l, i)); }
+        try { return normalizeLogCollection(JSON.parse(localStorage.getItem(STORE_LOGS) || '[]'), 'stored-log'); }
         catch { return []; }
       });
       const [cgmCfg, setCgmCfg] = useState(() => loadStored(STORE_CGM, DEFAULT_CGM_CONFIG));
@@ -7605,20 +7937,22 @@
       // -- Forward projection --------------------------------------------------------
       const { pts: projection, U_scalar: projUScalar } = useMemo(() => {
         const startG = effBgNum !== profile.targetBG ? effBgNum : (logs[0]?.bloodSugar || profile.targetBG);
-        return simulateProjection(startG, pkState, sv, inp, profile, sim, 4, mealState);
+        return simulateProjection(startG, pkState, sv, inp, profile, sim, CHART_PROJECTION_HOURS, mealState);
       }, [effBgNum, pkState, sv, inp, profile, sim, logs, mealState]);
 
       // Low-risk routing choice: keep legacy chartTab IDs ('bg', 'c2', 'c3', 'c4', 'c5')
       // while the canonical ownership model stays Chart 1-5 as documented above.
-      const chartNowMs = useMemo(() => Date.now(), [logs, projection, profile, sim, liveMod]);
-      const chartPipeline = useMemo(() => buildChartDataPipeline({
-        logs,
-        projection,
-        profile,
-        sim,
-        liveMod,
-        nowMs: chartNowMs,
-      }), [logs, projection, profile, sim, liveMod, chartNowMs]);
+      const chartPipeline = useMemo(() => {
+        if (tab !== 'charts') return EMPTY_CHART_PIPELINE;
+        return buildChartDataPipeline({
+          logs,
+          projection,
+          profile,
+          sim,
+          liveMod,
+          nowMs: Date.now(),
+        });
+      }, [tab, logs, projection, profile, sim, liveMod]);
       const {
         chart1,
         chart2,
@@ -7649,7 +7983,7 @@
         const dose = (actualDoseNum !== null && Number.isFinite(actualDoseNum) && actualDoseNum >= 0)
           ? { ...baseDose, total: Math.round(actualDoseNum * 10) / 10 }
           : baseDose;
-        const entry = makeLogEntry({
+        const entry = normalizeLogEntry(makeLogEntry({
           bgV, fsV, cV, hrNum, paNum, slp, sleepQ, stress, illness, hydration,
           site: INJECTION_SITES[siteIdx].profileKey.replace('siteMult_', ''),
           siteMultiplier,
@@ -7658,7 +7992,7 @@
           stimulantLevel, depressantLevel, nicotineLevel, thcLevel,
           timestampIso,
           not,
-        }, dose, liveMod);
+        }, dose, liveMod), 0);
         setLogs(prev => [entry, ...prev]);
         setBg(''); setFs(''); setCrbs(''); setEntryTime(''); setHr(''); setFat(''); setProtein(''); setNot(''); setActualDose('');
         if (dose.capped) showT(`Logged capped dose ${dose.total}u (cap ${dose.maxDose}u; uncapped ${dose.uncappedTotal}u)`, 'err');
@@ -7675,7 +8009,7 @@
             setLogs(prev => {
               const seen = new Set(prev.map(l => l.timestamp));
               return [...imp.filter(l => !seen.has(l.timestamp)), ...prev]
-                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                .sort((a, b) => getLogTimestampMs(b) - getLogTimestampMs(a));
             });
             showT(`Imported ${imp.length} records`);
           } catch { showT('Failed to parse CSV', 'err'); }
@@ -7985,10 +8319,10 @@
               </div>
             </div>
 
-            {/* 4-hour forecast */}
+            {/* 8-hour forecast */}
             <div className="card">
               <div className="ct">
-                📉 4-Hour BG Forecast
+                📉 8-Hour BG Forecast
                 {projUScalar != null && (() => {
                   const conf = projUScalar < 1.15 ? { label: 'High Confidence', c: 'var(--g)' }
                     : projUScalar < 1.4 ? { label: 'Good Confidence', c: 'var(--g)' }
@@ -8028,7 +8362,7 @@
               </div>
               {projBgEnd != null && (
                 <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--td)', fontFamily: 'var(--mono)' }}>
-                  Projected in 4h: <strong style={{ color: bgColor(projBgEnd) }}>{formatBgForDisplay(projBgEnd, ui, isMmol(ui) ? 1 : 0)} {bgUnitLabel(ui)}</strong>
+                  Projected in {CHART_PROJECTION_HOURS}h: <strong style={{ color: bgColor(projBgEnd) }}>{formatBgForDisplay(projBgEnd, ui, isMmol(ui) ? 1 : 0)} {bgUnitLabel(ui)}</strong>
                   &nbsp; {projLabel(projBgEnd, profile)}
                   {(projection.at(-1)?.u ?? 0) > 0 && (
                     <span style={{
@@ -8077,7 +8411,8 @@
                   chart4Raw={aggregator.chart4Raw}
                   profile={profile}
                   sim={sim}
-                  ui={ui} />
+                  ui={ui}
+                  timeWindow={chartPipeline.meta} />
                 <div className="note" style={{ marginTop: '8px' }}>
                   Fused BG trace anchored to real observations (Chart 4) with meal (green) and insulin (purple) contributions on secondary axis. Uncertainty band widens with horizon. Meal absorption and insulin rates derived from your logged entries.
                 </div>
@@ -8088,12 +8423,9 @@
               <div className="card">
                 <div className="ct">💉 Insulin Effect on Blood Glucose</div>
                 <Chart2InsulinEffectChart
-                  logs={logs}
-                  projection={projection}
-                  series={chart2.series}
-                  profile={profile}
-                  sim={sim}
-                  ui={ui} />
+                  chartData={chart2.chartData}
+                  ui={ui}
+                  timeWindow={chartPipeline.meta} />
                 <div className="note" style={{ marginTop: '8px' }}>
                   <span style={{ color: 'var(--tx)' }}>Primary line</span> = BG history,
                   <span style={{ color: 'var(--td)' }}> dashed</span> = projected BG,
@@ -8107,7 +8439,7 @@
             {chartTab === 'c3' && (
               <div className="card">
                 <div className="ct">🔧 Modifier Suite</div>
-                <Chart3ModifierChart series={chart3.series} ui={ui} />
+                <Chart3ModifierChart series={chart3.series} ui={ui} timeWindow={chartPipeline.meta} />
                 <div className="note" style={{ marginTop: '8px' }}>
                   Historical modifier values reconstructed per log entry using your real profile &amp; sim settings.
                   <span style={{ color: 'var(--ac)' }}> accent</span> = absorption,
@@ -8125,7 +8457,8 @@
                 <Chart4ActualGlucoseChart
                   fusedSeries={chart4.fusedSeries}
                   rawSeries={chart4.rawSeries}
-                  ui={ui} />
+                  ui={ui}
+                  timeWindow={chartPipeline.meta} />
                 <div className="note" style={{ marginTop: '8px' }}>
                   Per-timestamp fusion: <span style={{ color: 'var(--r)' }}>fingerstick</span> {'>'} <span style={{ color: getChartTheme(ui).info }}>CGM</span> {'>'} <span style={{ color: 'var(--g)' }}>manual</span>. Values outside {formatBgRange(20, 600, ui)} are excluded.
                 </div>
@@ -8135,7 +8468,7 @@
             {chartTab === 'c5' && (
               <div className="card">
                 <div className="ct">🍽️ Meal Absorption Model</div>
-                <Chart1MealContributionChart series={chart1.series} ui={ui} />
+                <Chart1MealContributionChart series={chart1.series} ui={ui} timeWindow={chartPipeline.meta} />
                 <div className="note" style={{ marginTop: '8px' }}>
                   <span style={{ color: 'var(--tx)' }}>Light dots</span> = logged meal inputs from your entries.
                   <span style={{ color: 'var(--tx)' }}> primary line/fill</span> = fused meal response.

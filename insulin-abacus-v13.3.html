@@ -2262,6 +2262,7 @@
     const BG_DOSING_MAX = 500;
     const CARB_ENTRY_MIN = 0;
     const CARB_ENTRY_MAX = 400;
+    const ACTIVE_IOB_EPSILON_U = 1e-6;
     const IOB_STACK_WARN_U = 2;
     const CALIBRATION_MIN_LOGS = 10;
 
@@ -3392,8 +3393,8 @@
 
     // -- C4. State variables (body memory) ----------------------------------------
     // Integrates log history to compute E_ex (exercise), L (low memory), H (high memory).
-    function computeStateVars(logs, profile, sim) {
-      const nowMs = Date.now();
+    // nowMs can be overridden when reconstructing a historical point-in-time state.
+    function computeStateVars(logs, profile, sim, nowMs = Date.now()) {
       let E_ex = 0, L = 0, H = 0;
       logs.forEach(log => {
         const hrs = (nowMs - new Date(log.timestamp).getTime()) / 3_600_000;
@@ -3505,6 +3506,7 @@
 
     // -- C7. Dose calculation ------------------------------------------------------
     // Suggests a bolus dose based on current BG, carbs, and sensitivity.
+    // Safety rule: any active IOB suppresses the suggested dose to 0u.
     function calcDose(bg, carbs, sv, inp, profile, sim, pkCorrRec = null) {
       if (!isFinite(bg) || bg <= 0 || bg > BG_DOSING_MAX) return null;
       if (!isFinite(carbs) || carbs < CARB_ENTRY_MIN || carbs > CARB_ENTRY_MAX) return null;
@@ -3519,19 +3521,21 @@
         sm.fTravel * sm.fAlcohol * sm.fStimulant * sm.fNicotine;
       const corrDoseBase = bg > profile.targetBG ? (bg - profile.targetBG) / Math.max(1, seffDose) : 0;
       const pkIobCredit = Math.max(0, Number(pkCorrRec?.iobCredit) || 0);
+      const activeIob = Math.max(0, Number(pkCorrRec?.state?.clinical?.effectiveSubqIob) || pkIobCredit);
+      const suppressedByActiveIob = activeIob > ACTIVE_IOB_EPSILON_U;
       const pkExpectedFutureISF = Number(pkCorrRec?.expectedFutureISF);
       // Safe correction path: apply PK-derived IOB credit whenever available.
       const corrDoseSafe = (pkCorrRec && bg > profile.targetBG)
         ? Math.max(0, (Number(pkCorrRec.rawCorrection) || 0) - pkIobCredit)
         : corrDoseBase;
-      const corrDose = Math.min(corrDoseBase, corrDoseSafe);
+      const corrDose = suppressedByActiveIob ? 0 : Math.min(corrDoseBase, corrDoseSafe);
       // Effective carb ratio scales with sensitivity factors: more sensitive means
       // more grams are covered per unit; more resistant means fewer grams per unit.
       const allDynamic = sm.fBMI * sm.fAge * sm.fSex *
         sm.fEx * sm.fDawn * sm.fLow * sm.fHigh * sm.fSlp * sm.fStress * sm.fIllness *
         sm.fTravel * sm.fAlcohol * sm.fStimulant * sm.fNicotine;
       const effCR = profile.carbRatio * Math.max(0.05, allDynamic);
-      const carbDose = carbs > 0 ? carbs / Math.max(0.5, effCR) : 0;
+      const carbDose = suppressedByActiveIob ? 0 : (carbs > 0 ? carbs / Math.max(0.5, effCR) : 0);
       const uncappedTotal = Math.max(0, corrDose + carbDose);
       const maxDose = Math.max(0.5, safeNum(profile.maxDose, 50));
       const capped = uncappedTotal > maxDose;
@@ -3547,7 +3551,9 @@
         effCR: Math.round(effCR * 10) / 10,
         seffDose: Math.round(seffDose),
         corrSensitivity: Math.round(((pkExpectedFutureISF > 0 ? pkExpectedFutureISF : seffDose)) * 10) / 10,
+        activeIob: Math.round(activeIob * 100) / 100,
         iobCredit: Math.round(pkIobCredit * 100) / 100,
+        suppressedByActiveIob,
         correctionBlockedByIob: corrDoseBase > 0 && corrDose <= 0 && pkIobCredit > 0,
       };
     }
@@ -4854,11 +4860,19 @@
                   <div className="rv">{doseRes.total}<span style={{ fontSize: '18px', color: 'var(--td)' }}>u</span></div>
                 </div>
                 <div className="rb">
-                  {doseRes.corrDoseBase > 0 && <>{`Correction: (${formatBgForDisplay(effBgNum, ui, isMmol(ui) ? 1 : 0)} − ${formatBgForDisplay(targetBG, ui, isMmol(ui) ? 1 : 0)}) / ${formatCorrFactorForDisplay(doseRes.corrSensitivity, ui)} = +${doseRes.corrDoseBase}u`}<br /></>}
-                  {doseRes.iobCredit > 0 && <>{`PK IOB credit: -${doseRes.iobCredit}u -> correction ${doseRes.corrDose}u`}<br /></>}
-                  {doseRes.correctionBlockedByIob && <span style={{ color: 'var(--r)' }}>Correction blocked by active IOB.</span>}
-                  {doseRes.carbDose > 0 && <>{`Carbs: ${crbs}g ÷ ${doseRes.effCR}g/u (adjusted ratio) = +${doseRes.carbDose}u`}<br /></>}
-                  {totalIOB > 0 && <span style={{ color: 'var(--y)' }}>⚠ {totalIOB}u IOB active — check Active Insulin tab for PK model credit</span>}
+                  {doseRes.suppressedByActiveIob ? (
+                    <div className="crit-full">
+                      {doseRes.activeIob}u IOB is still active. Suggested dose forced to 0u until active insulin clears.
+                    </div>
+                  ) : (
+                    <>
+                      {doseRes.corrDoseBase > 0 && <>{`Correction: (${formatBgForDisplay(effBgNum, ui, isMmol(ui) ? 1 : 0)} − ${formatBgForDisplay(targetBG, ui, isMmol(ui) ? 1 : 0)}) / ${formatCorrFactorForDisplay(doseRes.corrSensitivity, ui)} = +${doseRes.corrDoseBase}u`}<br /></>}
+                      {doseRes.iobCredit > 0 && <>{`PK IOB credit: -${doseRes.iobCredit}u -> correction ${doseRes.corrDose}u`}<br /></>}
+                      {doseRes.correctionBlockedByIob && <span style={{ color: 'var(--r)' }}>Correction blocked by active IOB.</span>}
+                      {doseRes.carbDose > 0 && <>{`Carbs: ${crbs}g ÷ ${doseRes.effCR}g/u (adjusted ratio) = +${doseRes.carbDose}u`}<br /></>}
+                    </>
+                  )}
+                  {!doseRes.suppressedByActiveIob && totalIOB > 0 && <span style={{ color: 'var(--y)' }}>⚠ {totalIOB}u IOB active — check Active Insulin tab for PK model credit</span>}
                   {doseRes.capped && (
                     <div className="crit-full">
                       Dose capped at {doseRes.maxDose}u (uncapped estimate {doseRes.uncappedTotal}u). Review manually before logging.
@@ -5270,7 +5284,109 @@
       const blockedDose = calcDose(550, 30, sv, { ...inp, bg: 550, carbs: 30 }, tProfile, tSim, null);
       push('calcDose bounds', blockedDose === null, blockedDose === null ? 'blocked as expected' : 'unexpected non-null');
 
+      const iobSuppressedDose = calcDose(180, 15, sv, { ...inp, bg: 180, carbs: 15 }, tProfile, tSim, {
+        expectedFutureISF: 50,
+        rawCorrection: 1.6,
+        iobCredit: 1.52,
+        state: { clinical: { effectiveSubqIob: 1.52 } },
+      });
+      push(
+        'calcDose suppresses active IOB',
+        !!iobSuppressedDose
+        && iobSuppressedDose.suppressedByActiveIob
+        && iobSuppressedDose.total === 0
+        && iobSuppressedDose.carbDose === 0
+        && iobSuppressedDose.corrDose === 0,
+        iobSuppressedDose
+          ? `total=${iobSuppressedDose.total}, carb=${iobSuppressedDose.carbDose}, corr=${iobSuppressedDose.corrDose}, iob=${iobSuppressedDose.activeIob}`
+          : 'null'
+      );
+
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      const svTimingLog = normalizeLogEntry({
+        id: 'sv1',
+        timestamp: twoHoursAgo,
+        bloodSugar: 60,
+        carbs: 0,
+        insulinDose: 0,
+        hr: tProfile.HR_ref,
+        pa: 0,
+        sleep: 0,
+        sleepQ: 4,
+        stress: 0,
+        illness: 0,
+        hydration: 0,
+        travelDay: 0,
+        alcoholLevel: 0,
+        stimulantLevel: 0,
+        depressantLevel: 0,
+        nicotineLevel: 0,
+        thcLevel: 0,
+        site: 'abdomen',
+        siteMultiplier: 1,
+        fat_g: 0,
+        protein_g: 0,
+        mealType: 0,
+        fiberClass: 0,
+        kabs_rel: 1,
+        seff_mult: 1,
+        notes: '',
+      }, 0);
+      const svAtEvent = computeStateVars([svTimingLog], tProfile, tSim, svTimingLog.timestampMs);
+      const svAtNow = computeStateVars([svTimingLog], tProfile, tSim);
+      push(
+        'computeStateVars timestamp aware',
+        svAtEvent.L > svAtNow.L,
+        `eventL=${svAtEvent.L.toFixed(2)}, nowL=${svAtNow.L.toFixed(2)}`
+      );
+
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const cgmOnlyLog = normalizeLogEntry({
+        id: 'cgm1',
+        timestamp: oneHourAgo,
+        bloodSugar: null,
+        cgm: 145,
+        fingerstick: null,
+        carbs: 0,
+        insulinDose: 2,
+        hr: tProfile.HR_ref,
+        pa: 0,
+        sleep: 0,
+        sleepQ: 4,
+        stress: 0,
+        illness: 0,
+        hydration: 0,
+        travelDay: 0,
+        alcoholLevel: 0,
+        stimulantLevel: 0,
+        depressantLevel: 0,
+        nicotineLevel: 0,
+        thcLevel: 0,
+        site: 'abdomen',
+        siteMultiplier: 1,
+        fat_g: 0,
+        protein_g: 0,
+        mealType: 0,
+        fiberClass: 0,
+        kabs_rel: 1,
+        seff_mult: 1,
+        notes: '',
+      }, 0);
+      const actualSource = c4_buildActualGlucoseSource([cgmOnlyLog], null);
+      const chart2Data = c2_buildInsulinChartData([cgmOnlyLog], [], [], actualSource.fusedSeries, null, Date.now());
+      push(
+        'chart2 uses fused glucose history',
+        chart2Data.bgHistory.length === 1 && chart2Data.bgHistory[0].y === 145,
+        chart2Data.bgHistory.length ? `bg=${chart2Data.bgHistory[0].y}` : 'no history'
+      );
+      const observedCtx = c4_buildObservedGlucoseContext([cgmOnlyLog], null);
+      const chart3FromObserved = c3_buildModifierSeries([cgmOnlyLog], tProfile, tSim, null, null, observedCtx);
+      push(
+        'chart3 uses fused glucose observations',
+        chart3FromObserved.length === 1 && Number.isFinite(chart3FromObserved[0].seff_mult),
+        chart3FromObserved.length ? `len=${chart3FromObserved.length}, seff=${chart3FromObserved[0].seff_mult.toFixed(3)}` : 'no series'
+      );
+
       const testLogs = [normalizeLogEntry({
         id: 'u1',
         timestamp: oneHourAgo,
@@ -6565,6 +6681,61 @@
       };
     }
 
+    // Canonical fused observation context shared by downstream charts that need
+    // one glucose truth source plus the surrounding log metadata at that timestamp.
+    function c4_buildObservedGlucoseContext(logs, timeWindow = null, minBG = 20, maxBG = 600) {
+      if (!Array.isArray(logs) || !logs.length) return [];
+
+      const groups = new Map();
+      for (const log of logs) {
+        if (!log || !log.timestamp) continue;
+        const tMs = getLogTimestampMs(log);
+        if (!Number.isFinite(tMs)) continue;
+        if (!groups.has(tMs)) groups.set(tMs, []);
+        groups.get(tMs).push(log);
+      }
+
+      const points = [];
+      const sortedTimes = Array.from(groups.keys()).sort((a, b) => a - b);
+      sortedTimes.forEach((tMs, idx) => {
+        if (!isWithinChartWindow(tMs, timeWindow)) return;
+
+        let selected = null;
+        let type = 'manual';
+        let contextLog = null;
+        for (const log of groups.get(tMs)) {
+          const fs = Number(log.fingerstick);
+          const cgm = Number(log.cgm);
+          const bs = Number(log.bloodSugar);
+          if (selected === null && Number.isFinite(fs) && fs >= minBG && fs <= maxBG) {
+            selected = fs; type = 'fingerstick'; contextLog = log;
+          }
+          if (selected === null && Number.isFinite(cgm) && cgm >= minBG && cgm <= maxBG) {
+            selected = cgm; type = 'cgm'; contextLog = log;
+          }
+          if (selected === null && Number.isFinite(bs) && bs >= minBG && bs <= maxBG) {
+            selected = bs; type = 'manual'; contextLog = log;
+          }
+        }
+
+        if (selected === null || !contextLog) return;
+        points.push({
+          ...normalizeMetricTimePoint({
+            t: tMs,
+            glucose: selected,
+            type,
+          }, {
+            label: `chart4.observedContext[${idx}]`,
+            timeKey: 't',
+            numericKeys: ['glucose'],
+          }),
+          log: contextLog,
+        });
+      });
+
+      return points;
+    }
+
     function Chart4ActualGlucoseChart({ fusedSeries, rawSeries, ui, timeWindow }) {
       const ref = useRef(null);
       const inst = useRef(null);
@@ -6711,36 +6882,49 @@
 
     // -- E5c. Chart 3 · Modifier Suite --------------------------------------------
     // Reconstructs k_abs_mult, seff_mult, hepaticOutputFactor, U_scalar at every
-    // historical log point using the app's own computeModifiers + computeStateVars.
+    // fused glucose observation using the app's own computeModifiers + computeStateVars.
     // No new math — pure time-series reconstruction from real logged data.
 
     // Canonical Chart 3 source contract:
     //   [{ t, k_abs_mult, seff_mult, hepatic_factor, U_scalar }]
-    function c3_buildModifierSeries(logs, profile, sim, liveMod = null, timeWindow = null) {
+    function c3_buildModifierSeries(logs, profile, sim, liveMod = null, timeWindow = null, observedGlucose = null) {
       const centerMs = timeWindow?.centerMs ?? Date.now();
-      const sorted = [...logs]
-        .map(log => ({ ...log, timestampMs: getLogTimestampMs(log) }))
-        .filter(l => l.bloodSugar != null && Number.isFinite(l.timestampMs))
-        .sort((a, b) => a.timestampMs - b.timestampMs);
+      const observations = (Array.isArray(observedGlucose) && observedGlucose.length)
+        ? observedGlucose
+        : [...(logs || [])]
+          .map(log => {
+            const tMs = getLogTimestampMs(log);
+            const glucose = Number(log?.bloodSugar);
+            if (!Number.isFinite(tMs) || !Number.isFinite(glucose)) return null;
+            return { t: tMs, glucose, type: 'manual', log };
+          })
+          .filter(Boolean)
+          .sort((a, b) => a.t - b.t);
       const series = [];
-      sorted.forEach((log, i) => {
-        const tMs = log.timestampMs;
+      observations.forEach((obs, i) => {
+        const tMs = Number(obs.t);
         if (!isWithinChartWindow(tMs, timeWindow)) return;
+        const contextLog = obs.log || {};
+        const historicalLogs = observations.slice(0, i + 1).map(item => ({
+          ...(item.log || {}),
+          timestamp: item.log?.timestamp || new Date(item.t).toISOString(),
+          bloodSugar: item.glucose,
+        }));
         const tDate = new Date(tMs);
-        const svAt = computeStateVars(sorted.slice(0, i + 1), profile, sim);
+        const svAt = computeStateVars(historicalLogs, profile, sim, tMs);
         const tHr = tDate.getHours() + tDate.getMinutes() / 60;
         const inpAt = {
-          bmi: profile.bmi, hr: log.hr || profile.HR_ref,
-          pa: log.pa || 0, sleep: log.sleep || 0, sleepQ: log.sleepQ ?? 4,
-          stress: log.stress || 0, illness: log.illness || 0,
-          hydration: log.hydration ?? 1, travelDay: log.travelDay || 0,
-          alcoholLevel: log.alcoholLevel || 0, stimulantLevel: log.stimulantLevel || 0,
-          depressantLevel: log.depressantLevel || 0, nicotineLevel: log.nicotineLevel || 0,
-          thcLevel: log.thcLevel || 0, dawnEffect: 0,
-          bg: log.bloodSugar, timeHour: tHr,
-          carbs: log.carbs || 0, fat_g: log.fat_g || 0,
-          protein_g: log.protein_g || 0, mealType: log.mealType || 0,
-          fiberClass: log.fiberClass || 0,
+          bmi: profile.bmi, hr: contextLog.hr || profile.HR_ref,
+          pa: contextLog.pa || 0, sleep: contextLog.sleep || 0, sleepQ: contextLog.sleepQ ?? 4,
+          stress: contextLog.stress || 0, illness: contextLog.illness || 0,
+          hydration: contextLog.hydration ?? 1, travelDay: contextLog.travelDay || 0,
+          alcoholLevel: contextLog.alcoholLevel || 0, stimulantLevel: contextLog.stimulantLevel || 0,
+          depressantLevel: contextLog.depressantLevel || 0, nicotineLevel: contextLog.nicotineLevel || 0,
+          thcLevel: contextLog.thcLevel || 0, dawnEffect: 0,
+          bg: obs.glucose, timeHour: tHr,
+          carbs: contextLog.carbs || 0, fat_g: contextLog.fat_g || 0,
+          protein_g: contextLog.protein_g || 0, mealType: contextLog.mealType || 0,
+          fiberClass: contextLog.fiberClass || 0,
         };
         const mod = computeModifiers(inpAt, svAt, profile, sim);
         series.push(normalizeMetricTimePoint({
@@ -6894,7 +7078,7 @@
 
     // -- E5d. Chart 2 · Insulin Effect on Blood Glucose ----------------------------
     // Uses the app's existing projection (already computed via simulateProjection) plus
-    // the log history. No PK re-implementation — all math already runs upstream.
+    // fused glucose history from Chart 4. No PK re-implementation — all math already runs upstream.
 
     // Canonical Chart 2 source:
     // builds the prepared insulin-effect series used by both the insulin chart and
@@ -6917,13 +7101,13 @@
         }));
     }
 
-    function c2_buildInsulinChartData(logs, projection, series, timeWindow = null, nowMs = Date.now()) {
-      const bgHistory = mergeSeriesByTime((logs || [])
-        .map(log => {
-          const x = getLogTimestampMs(log);
-          const y = Number(log?.bloodSugar);
+    function c2_buildInsulinChartData(logs, projection, series, fusedSeries = [], timeWindow = null, nowMs = Date.now()) {
+      const bgHistory = mergeSeriesByTime((fusedSeries || [])
+        .map(pt => {
+          const x = Number(pt?.t);
+          const y = Number(pt?.glucose);
           if (!Number.isFinite(x) || !Number.isFinite(y) || !isWithinChartWindow(x, timeWindow)) return null;
-          return { ...normalizeTimePoint({ x, y }), rawBg: y };
+          return { ...normalizeTimePoint({ x, y }), rawBg: y, sourceType: pt?.type || 'manual' };
         })
         .filter(Boolean)
         .sort((a, b) => a.x - b.x), 'x');
@@ -7596,9 +7780,10 @@
           dtMin: dtMinutes,
         });
         const chart2Series = c2_buildInsulinSeries(projection, profile, sim, liveMod, centerMs);
-        const chart2Data = c2_buildInsulinChartData(logs, projection, chart2Series, timeWindow, centerMs);
-        const chart3Series = c3_buildModifierSeries(logs, profile, sim, liveMod, timeWindow);
         const actualGlucoseSource = c4_buildActualGlucoseSource(logs, timeWindow);
+        const observedGlucoseContext = c4_buildObservedGlucoseContext(logs, timeWindow);
+        const chart2Data = c2_buildInsulinChartData(logs, projection, chart2Series, actualGlucoseSource.fusedSeries, timeWindow, centerMs);
+        const chart3Series = c3_buildModifierSeries(logs, profile, sim, liveMod, timeWindow, observedGlucoseContext);
         const chart4Raw = {
           cgm: actualGlucoseSource.rawSeries?.cgm || [],
           fingerstick: actualGlucoseSource.rawSeries?.fingerstick || [],
